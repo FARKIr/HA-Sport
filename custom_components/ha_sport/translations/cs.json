@@ -1,0 +1,370 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "HA Sport CZ/SK",
+        "description": "Fotbal, hokej a basketbal v Česku a na Slovensku: zápasy, výsledky, tabulky, pavouci, kurzy a kde se dívat.",
+        "data": {
+          "sports": "Sporty",
+          "countries": "Země",
+          "base_url": "Adresa API"
+        },
+        "data_description": {
+          "base_url": "Výchozí https://www.sofascore.com/api/v1 (při chybě se automaticky zkusí záložní adresy)."
+        }
+      },
+      "competitions": {
+        "title": "Soutěže",
+        "description": "Vyberte soutěže, které chcete sledovat (ligy, poháry, play-off).",
+        "data": {
+          "competitions": "Soutěže"
+        }
+      },
+      "favorites": {
+        "title": "Oblíbené týmy",
+        "description": "Vyberte oblíbené týmy – získají vlastní senzory, kalendář, kurzy a oznámení. Pro reprezentaci nebo tým z jiné soutěže použijte vyhledávání.",
+        "data": {
+          "favorite_teams": "Oblíbené týmy",
+          "search": "Vyhledat další tým"
+        },
+        "data_description": {
+          "search": "Např. „Česko“, „Slovan Bratislava“, „Kometa“. Po odeslání se zobrazí výsledky."
+        }
+      },
+      "search": {
+        "title": "Výsledky hledání",
+        "data": {
+          "results": "Přidat do oblíbených"
+        }
+      },
+      "notifications": {
+        "title": "Oznámení",
+        "description": "Nastavte, kdy a kam chcete dostávat upozornění na zápasy.",
+        "data": {
+          "notify_enabled": "Zapnout oznámení",
+          "notify_scope": "Pro které zápasy",
+          "notify_before": "Upozornit před začátkem",
+          "notify_start": "Oznámit začátek zápasu",
+          "notify_score": "Oznámit góly / změnu skóre",
+          "notify_periods": "Oznámit konec poločasu / třetiny / čtvrtiny",
+          "notify_end": "Oznámit konečný výsledek",
+          "notify_live_interval": "Průběžný stav během zápasu každých",
+          "notify_targets": "Kam posílat (notify služby)",
+          "notify_persistent": "Zobrazit i jako oznámení v HA",
+          "quiet_start": "Tichý režim od",
+          "quiet_end": "Tichý režim do"
+        },
+        "data_description": {
+          "notify_before": "Můžete vybrat více časů, nebo napsat vlastní počet minut (např. 45).",
+          "notify_live_interval": "0 = vypnuto. Např. 15 = každých 15 minut pošle aktuální stav živého zápasu.",
+          "notify_targets": "Např. notify.mobile_app_telefon – oznámení v aplikaci obsahuje tlačítko „Sledovat“ s odkazem na stream.",
+          "quiet_start": "V tomto čase se oznámení neposílají (událost ha_sport_notification se ale vyvolá vždy).",
+          "notify_score": "U basketbalu se jednotlivé koše neoznamují, použijte průběžný stav."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nelze se připojit ke zdroji dat (Sofascore). Zkuste jinou adresu API.",
+      "no_competitions": "Nebyly nalezeny žádné soutěže.",
+      "no_sport": "Vyberte alespoň jeden sport.",
+      "no_country": "Vyberte alespoň jednu zemi.",
+      "no_competition": "Vyberte alespoň jednu soutěž.",
+      "no_results": "Nic nenalezeno. Pokračujte odesláním."
+    },
+    "abort": {
+      "already_configured": "Již nastaveno."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Nastavení HA Sport",
+        "menu_options": {
+          "competitions": "Soutěže",
+          "favorites": "Oblíbené týmy",
+          "notifications": "Oznámení",
+          "general": "Obecné (obnovování, kurzy, TV)"
+        }
+      },
+      "competitions": {
+        "title": "Soutěže",
+        "description": "Vyberte soutěže, které chcete sledovat (ligy, poháry, play-off).",
+        "data": {
+          "competitions": "Soutěže"
+        }
+      },
+      "favorites": {
+        "title": "Oblíbené týmy",
+        "description": "Vyberte oblíbené týmy – získají vlastní senzory, kalendář, kurzy a oznámení. Pro reprezentaci nebo tým z jiné soutěže použijte vyhledávání.",
+        "data": {
+          "favorite_teams": "Oblíbené týmy",
+          "search": "Vyhledat další tým"
+        },
+        "data_description": {
+          "search": "Např. „Česko“, „Slovan Bratislava“, „Kometa“. Po odeslání se zobrazí výsledky."
+        }
+      },
+      "search": {
+        "title": "Výsledky hledání",
+        "data": {
+          "results": "Přidat do oblíbených"
+        }
+      },
+      "notifications": {
+        "title": "Oznámení",
+        "description": "Nastavte, kdy a kam chcete dostávat upozornění na zápasy.",
+        "data": {
+          "notify_enabled": "Zapnout oznámení",
+          "notify_scope": "Pro které zápasy",
+          "notify_before": "Upozornit před začátkem",
+          "notify_start": "Oznámit začátek zápasu",
+          "notify_score": "Oznámit góly / změnu skóre",
+          "notify_periods": "Oznámit konec poločasu / třetiny / čtvrtiny",
+          "notify_end": "Oznámit konečný výsledek",
+          "notify_live_interval": "Průběžný stav během zápasu každých",
+          "notify_targets": "Kam posílat (notify služby)",
+          "notify_persistent": "Zobrazit i jako oznámení v HA",
+          "quiet_start": "Tichý režim od",
+          "quiet_end": "Tichý režim do"
+        },
+        "data_description": {
+          "notify_before": "Můžete vybrat více časů, nebo napsat vlastní počet minut (např. 45).",
+          "notify_live_interval": "0 = vypnuto. Např. 15 = každých 15 minut pošle aktuální stav živého zápasu.",
+          "notify_targets": "Např. notify.mobile_app_telefon – oznámení v aplikaci obsahuje tlačítko „Sledovat“ s odkazem na stream.",
+          "quiet_start": "V tomto čase se oznámení neposílají (událost ha_sport_notification se ale vyvolá vždy).",
+          "notify_score": "U basketbalu se jednotlivé koše neoznamují, použijte průběžný stav."
+        }
+      },
+      "general": {
+        "title": "Obecné",
+        "data": {
+          "scan_interval": "Interval obnovy",
+          "live_scan_interval": "Interval obnovy při živém zápase",
+          "days_ahead": "Dní dopředu",
+          "days_back": "Dní dozadu",
+          "fetch_odds": "Stahovat kurzy",
+          "fetch_tv": "Stahovat TV / streamy",
+          "base_url": "Adresa API"
+        },
+        "data_description": {
+          "live_scan_interval": "Rychlé obnovování se zapne automaticky 20 minut před začátkem sledovaných zápasů.",
+          "base_url": "Výchozí https://www.sofascore.com/api/v1 (při chybě se automaticky zkusí záložní adresy)."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nelze se připojit ke zdroji dat (Sofascore). Zkuste jinou adresu API.",
+      "no_competitions": "Nebyly nalezeny žádné soutěže.",
+      "no_sport": "Vyberte alespoň jeden sport.",
+      "no_country": "Vyberte alespoň jednu zemi.",
+      "no_competition": "Vyberte alespoň jednu soutěž.",
+      "no_results": "Nic nenalezeno. Pokračujte odesláním."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "next_match": {
+        "name": "Příští zápas"
+      },
+      "last_result": {
+        "name": "Poslední výsledek"
+      },
+      "position": {
+        "name": "Pozice v tabulce"
+      },
+      "live_matches": {
+        "name": "Živé zápasy"
+      },
+      "today_matches": {
+        "name": "Dnešní zápasy"
+      },
+      "week_favorites": {
+        "name": "Zápasy oblíbených tento týden"
+      },
+      "status": {
+        "name": "Poslední aktualizace"
+      }
+    },
+    "binary_sensor": {
+      "playing": {
+        "name": "Právě hraje"
+      },
+      "plays_today": {
+        "name": "Hraje dnes"
+      },
+      "favorite_live": {
+        "name": "Oblíbený tým hraje"
+      }
+    },
+    "calendar": {
+      "all": {
+        "name": "Zápasy"
+      },
+      "favorites": {
+        "name": "Zápasy oblíbených"
+      }
+    },
+    "switch": {
+      "notifications": {
+        "name": "Oznámení"
+      },
+      "live_notifications": {
+        "name": "Živá oznámení"
+      }
+    },
+    "button": {
+      "refresh": {
+        "name": "Obnovit data"
+      },
+      "test_notification": {
+        "name": "Testovací oznámení"
+      }
+    }
+  },
+  "selector": {
+    "sport": {
+      "options": {
+        "football": "Fotbal",
+        "ice-hockey": "Hokej",
+        "basketball": "Basketbal"
+      }
+    },
+    "status": {
+      "options": {
+        "upcoming": "Nadcházející",
+        "live": "Živě",
+        "results": "Výsledky"
+      }
+    }
+  },
+  "services": {
+    "refresh": {
+      "name": "Obnovit data",
+      "description": "Okamžitě znovu načte všechna data."
+    },
+    "test_notification": {
+      "name": "Testovací oznámení",
+      "description": "Pošle zkušební oznámení s nejbližším zápasem."
+    },
+    "follow_match": {
+      "name": "Sledovat zápas",
+      "description": "Zapne oznámení (připomenutí, góly, výsledek) pro konkrétní zápas.",
+      "fields": {
+        "event_id": {
+          "name": "ID zápasu",
+          "description": "ID zápasu (atribut event_id / id)."
+        }
+      }
+    },
+    "unfollow_match": {
+      "name": "Přestat sledovat zápas",
+      "description": "Vypne ruční sledování zápasu.",
+      "fields": {
+        "event_id": {
+          "name": "ID zápasu",
+          "description": "ID zápasu (atribut event_id / id)."
+        }
+      }
+    },
+    "mute_match": {
+      "name": "Ztlumit zápas",
+      "description": "Pro tento zápas nebudou chodit žádná oznámení.",
+      "fields": {
+        "event_id": {
+          "name": "ID zápasu",
+          "description": "ID zápasu (atribut event_id / id)."
+        }
+      }
+    },
+    "get_matches": {
+      "name": "Získat zápasy",
+      "description": "Vrátí seznam zápasů podle filtru (pro automatizace a skripty).",
+      "fields": {
+        "sport": {
+          "name": "Sport",
+          "description": "Sport"
+        },
+        "competition_id": {
+          "name": "ID soutěže",
+          "description": "ID soutěže (atribut competition_id)."
+        },
+        "team_id": {
+          "name": "ID týmu",
+          "description": "ID týmu (Sofascore)."
+        },
+        "query": {
+          "name": "Hledat",
+          "description": "Název týmu, soutěže nebo město."
+        },
+        "city": {
+          "name": "Město",
+          "description": "Filtrovat podle města / stadionu."
+        },
+        "status": {
+          "name": "Stav",
+          "description": "Stav"
+        },
+        "favorites_only": {
+          "name": "Jen oblíbené",
+          "description": "Jen oblíbené"
+        },
+        "days_ahead": {
+          "name": "Dní dopředu",
+          "description": "Dní dopředu"
+        },
+        "days_back": {
+          "name": "Dní dozadu",
+          "description": "Dní dozadu"
+        },
+        "limit": {
+          "name": "Maximální počet",
+          "description": "Maximální počet"
+        }
+      }
+    },
+    "get_team": {
+      "name": "Informace o týmu",
+      "description": "Příští a poslední zápas, forma a pozice v tabulce.",
+      "fields": {
+        "team_id": {
+          "name": "ID týmu",
+          "description": "ID týmu (Sofascore)."
+        }
+      }
+    },
+    "search_team": {
+      "name": "Vyhledat tým",
+      "description": "Vyhledá tým podle názvu nebo města.",
+      "fields": {
+        "query": {
+          "name": "Hledat",
+          "description": "Název týmu, soutěže nebo město."
+        },
+        "sport": {
+          "name": "Sport",
+          "description": "Sport"
+        }
+      }
+    },
+    "add_favorite": {
+      "name": "Přidat oblíbený tým",
+      "description": "Přidá tým mezi oblíbené.",
+      "fields": {
+        "team_id": {
+          "name": "ID týmu",
+          "description": "ID týmu (Sofascore)."
+        }
+      }
+    },
+    "remove_favorite": {
+      "name": "Odebrat oblíbený tým",
+      "description": "Odebere tým z oblíbených.",
+      "fields": {
+        "team_id": {
+          "name": "ID týmu",
+          "description": "ID týmu (Sofascore)."
+        }
+      }
+    }
+  }
+}

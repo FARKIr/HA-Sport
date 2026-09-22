@@ -1,0 +1,140 @@
+refresh:
+
+test_notification:
+
+follow_match:
+  fields:
+    event_id:
+      required: true
+      example: 12345678
+      selector:
+        number:
+          min: 1
+          max: 999999999
+          mode: box
+
+unfollow_match:
+  fields:
+    event_id:
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 999999999
+          mode: box
+
+mute_match:
+  fields:
+    event_id:
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 999999999
+          mode: box
+
+get_matches:
+  fields:
+    sport:
+      selector:
+        select:
+          options:
+            - football
+            - ice-hockey
+            - basketball
+          translation_key: sport
+    competition_id:
+      selector:
+        number:
+          min: 1
+          max: 999999999
+          mode: box
+    team_id:
+      selector:
+        number:
+          min: 1
+          max: 999999999
+          mode: box
+    query:
+      example: "Sparta"
+      selector:
+        text:
+    city:
+      example: "Brno"
+      selector:
+        text:
+    status:
+      selector:
+        select:
+          options:
+            - upcoming
+            - live
+            - results
+          translation_key: status
+    favorites_only:
+      default: false
+      selector:
+        boolean:
+    days_ahead:
+      selector:
+        number:
+          min: 0
+          max: 60
+    days_back:
+      selector:
+        number:
+          min: 0
+          max: 60
+    limit:
+      default: 50
+      selector:
+        number:
+          min: 1
+          max: 500
+          mode: box
+
+get_team:
+  fields:
+    team_id:
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 999999999
+          mode: box
+
+search_team:
+  fields:
+    query:
+      required: true
+      example: "Kometa"
+      selector:
+        text:
+    sport:
+      selector:
+        select:
+          options:
+            - football
+            - ice-hockey
+            - basketball
+          translation_key: sport
+
+add_favorite:
+  fields:
+    team_id:
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 999999999
+          mode: box
+
+remove_favorite:
+  fields:
+    team_id:
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 999999999
+          mode: box

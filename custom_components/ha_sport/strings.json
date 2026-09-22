@@ -1,0 +1,370 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "HA Sport CZ/SK",
+        "description": "Football, ice hockey and basketball in Czechia and Slovakia: fixtures, results, tables, brackets, odds and where to watch.",
+        "data": {
+          "sports": "Sports",
+          "countries": "Countries",
+          "base_url": "API URL"
+        },
+        "data_description": {
+          "base_url": "Default https://www.sofascore.com/api/v1 (fallback URLs are tried automatically)."
+        }
+      },
+      "competitions": {
+        "title": "Competitions",
+        "description": "Select competitions to follow (leagues, cups, play-offs).",
+        "data": {
+          "competitions": "Competitions"
+        }
+      },
+      "favorites": {
+        "title": "Favorite teams",
+        "description": "Pick your favorite teams – they get their own sensors, calendar, odds and notifications. Use search for national teams or teams from other competitions.",
+        "data": {
+          "favorite_teams": "Favorite teams",
+          "search": "Search another team"
+        },
+        "data_description": {
+          "search": "E.g. 'Czechia', 'Slovan Bratislava', 'Kometa'."
+        }
+      },
+      "search": {
+        "title": "Search results",
+        "data": {
+          "results": "Add to favorites"
+        }
+      },
+      "notifications": {
+        "title": "Notifications",
+        "description": "Choose when and where to receive match notifications.",
+        "data": {
+          "notify_enabled": "Enable notifications",
+          "notify_scope": "Which matches",
+          "notify_before": "Remind before kick-off",
+          "notify_start": "Notify match start",
+          "notify_score": "Notify goals / score changes",
+          "notify_periods": "Notify end of half / period / quarter",
+          "notify_end": "Notify final result",
+          "notify_live_interval": "Live score update every",
+          "notify_targets": "Notify services",
+          "notify_persistent": "Also show as HA persistent notification",
+          "quiet_start": "Quiet hours from",
+          "quiet_end": "Quiet hours until"
+        },
+        "data_description": {
+          "notify_before": "Select multiple, or type a custom number of minutes (e.g. 45).",
+          "notify_live_interval": "0 = off. E.g. 15 sends the current score every 15 minutes.",
+          "notify_targets": "E.g. notify.mobile_app_phone – the push contains a 'Watch' button linking to the stream.",
+          "quiet_start": "No notifications are sent in this window (the ha_sport_notification event is still fired).",
+          "notify_score": "Basketball baskets are not notified individually – use live score updates."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the data source (Sofascore). Try another API URL.",
+      "no_competitions": "No competitions found.",
+      "no_sport": "Select at least one sport.",
+      "no_country": "Select at least one country.",
+      "no_competition": "Select at least one competition.",
+      "no_results": "Nothing found. Submit to continue."
+    },
+    "abort": {
+      "already_configured": "Already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "HA Sport options",
+        "menu_options": {
+          "competitions": "Competitions",
+          "favorites": "Favorite teams",
+          "notifications": "Notifications",
+          "general": "General (polling, odds, TV)"
+        }
+      },
+      "competitions": {
+        "title": "Competitions",
+        "description": "Select competitions to follow (leagues, cups, play-offs).",
+        "data": {
+          "competitions": "Competitions"
+        }
+      },
+      "favorites": {
+        "title": "Favorite teams",
+        "description": "Pick your favorite teams – they get their own sensors, calendar, odds and notifications. Use search for national teams or teams from other competitions.",
+        "data": {
+          "favorite_teams": "Favorite teams",
+          "search": "Search another team"
+        },
+        "data_description": {
+          "search": "E.g. 'Czechia', 'Slovan Bratislava', 'Kometa'."
+        }
+      },
+      "search": {
+        "title": "Search results",
+        "data": {
+          "results": "Add to favorites"
+        }
+      },
+      "notifications": {
+        "title": "Notifications",
+        "description": "Choose when and where to receive match notifications.",
+        "data": {
+          "notify_enabled": "Enable notifications",
+          "notify_scope": "Which matches",
+          "notify_before": "Remind before kick-off",
+          "notify_start": "Notify match start",
+          "notify_score": "Notify goals / score changes",
+          "notify_periods": "Notify end of half / period / quarter",
+          "notify_end": "Notify final result",
+          "notify_live_interval": "Live score update every",
+          "notify_targets": "Notify services",
+          "notify_persistent": "Also show as HA persistent notification",
+          "quiet_start": "Quiet hours from",
+          "quiet_end": "Quiet hours until"
+        },
+        "data_description": {
+          "notify_before": "Select multiple, or type a custom number of minutes (e.g. 45).",
+          "notify_live_interval": "0 = off. E.g. 15 sends the current score every 15 minutes.",
+          "notify_targets": "E.g. notify.mobile_app_phone – the push contains a 'Watch' button linking to the stream.",
+          "quiet_start": "No notifications are sent in this window (the ha_sport_notification event is still fired).",
+          "notify_score": "Basketball baskets are not notified individually – use live score updates."
+        }
+      },
+      "general": {
+        "title": "General",
+        "data": {
+          "scan_interval": "Update interval",
+          "live_scan_interval": "Update interval during live matches",
+          "days_ahead": "Days ahead",
+          "days_back": "Days back",
+          "fetch_odds": "Fetch odds",
+          "fetch_tv": "Fetch TV / streams",
+          "base_url": "API URL"
+        },
+        "data_description": {
+          "live_scan_interval": "Fast polling starts automatically 20 minutes before tracked matches.",
+          "base_url": "Default https://www.sofascore.com/api/v1 (fallback URLs are tried automatically)."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the data source (Sofascore). Try another API URL.",
+      "no_competitions": "No competitions found.",
+      "no_sport": "Select at least one sport.",
+      "no_country": "Select at least one country.",
+      "no_competition": "Select at least one competition.",
+      "no_results": "Nothing found. Submit to continue."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "next_match": {
+        "name": "Next match"
+      },
+      "last_result": {
+        "name": "Last result"
+      },
+      "position": {
+        "name": "Table position"
+      },
+      "live_matches": {
+        "name": "Live matches"
+      },
+      "today_matches": {
+        "name": "Today's matches"
+      },
+      "week_favorites": {
+        "name": "Favorites' matches this week"
+      },
+      "status": {
+        "name": "Last update"
+      }
+    },
+    "binary_sensor": {
+      "playing": {
+        "name": "Playing now"
+      },
+      "plays_today": {
+        "name": "Plays today"
+      },
+      "favorite_live": {
+        "name": "Favorite team playing"
+      }
+    },
+    "calendar": {
+      "all": {
+        "name": "Matches"
+      },
+      "favorites": {
+        "name": "Favorite matches"
+      }
+    },
+    "switch": {
+      "notifications": {
+        "name": "Notifications"
+      },
+      "live_notifications": {
+        "name": "Live notifications"
+      }
+    },
+    "button": {
+      "refresh": {
+        "name": "Refresh data"
+      },
+      "test_notification": {
+        "name": "Test notification"
+      }
+    }
+  },
+  "selector": {
+    "sport": {
+      "options": {
+        "football": "Football",
+        "ice-hockey": "Ice hockey",
+        "basketball": "Basketball"
+      }
+    },
+    "status": {
+      "options": {
+        "upcoming": "Upcoming",
+        "live": "Live",
+        "results": "Results"
+      }
+    }
+  },
+  "services": {
+    "refresh": {
+      "name": "Refresh data",
+      "description": "Reload all data now."
+    },
+    "test_notification": {
+      "name": "Test notification",
+      "description": "Send a test notification for the nearest match."
+    },
+    "follow_match": {
+      "name": "Follow match",
+      "description": "Enable notifications (reminders, goals, result) for a specific match.",
+      "fields": {
+        "event_id": {
+          "name": "Match ID",
+          "description": "Match ID (event_id / id attribute)."
+        }
+      }
+    },
+    "unfollow_match": {
+      "name": "Unfollow match",
+      "description": "Stop following a match.",
+      "fields": {
+        "event_id": {
+          "name": "Match ID",
+          "description": "Match ID (event_id / id attribute)."
+        }
+      }
+    },
+    "mute_match": {
+      "name": "Mute match",
+      "description": "No notifications for this match.",
+      "fields": {
+        "event_id": {
+          "name": "Match ID",
+          "description": "Match ID (event_id / id attribute)."
+        }
+      }
+    },
+    "get_matches": {
+      "name": "Get matches",
+      "description": "Return matches matching a filter (for automations and scripts).",
+      "fields": {
+        "sport": {
+          "name": "Sport",
+          "description": "Sport"
+        },
+        "competition_id": {
+          "name": "Competition ID",
+          "description": "Competition ID (competition_id attribute)."
+        },
+        "team_id": {
+          "name": "Team ID",
+          "description": "Team ID (Sofascore)."
+        },
+        "query": {
+          "name": "Search",
+          "description": "Team name, competition or city."
+        },
+        "city": {
+          "name": "City",
+          "description": "Filter by city / stadium."
+        },
+        "status": {
+          "name": "Status",
+          "description": "Status"
+        },
+        "favorites_only": {
+          "name": "Favorites only",
+          "description": "Favorites only"
+        },
+        "days_ahead": {
+          "name": "Days ahead",
+          "description": "Days ahead"
+        },
+        "days_back": {
+          "name": "Days back",
+          "description": "Days back"
+        },
+        "limit": {
+          "name": "Maximum count",
+          "description": "Maximum count"
+        }
+      }
+    },
+    "get_team": {
+      "name": "Team info",
+      "description": "Next and last match, form and table position.",
+      "fields": {
+        "team_id": {
+          "name": "Team ID",
+          "description": "Team ID (Sofascore)."
+        }
+      }
+    },
+    "search_team": {
+      "name": "Search team",
+      "description": "Search a team by name or city.",
+      "fields": {
+        "query": {
+          "name": "Search",
+          "description": "Team name, competition or city."
+        },
+        "sport": {
+          "name": "Sport",
+          "description": "Sport"
+        }
+      }
+    },
+    "add_favorite": {
+      "name": "Add favorite team",
+      "description": "Add a team to favorites.",
+      "fields": {
+        "team_id": {
+          "name": "Team ID",
+          "description": "Team ID (Sofascore)."
+        }
+      }
+    },
+    "remove_favorite": {
+      "name": "Remove favorite team",
+      "description": "Remove a team from favorites.",
+      "fields": {
+        "team_id": {
+          "name": "Team ID",
+          "description": "Team ID (Sofascore)."
+        }
+      }
+    }
+  }
+}

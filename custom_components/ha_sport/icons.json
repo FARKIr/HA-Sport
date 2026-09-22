@@ -1,0 +1,14 @@
+{
+  "services": {
+    "refresh": {"service": "mdi:refresh"},
+    "test_notification": {"service": "mdi:bell-check"},
+    "follow_match": {"service": "mdi:bell-plus"},
+    "unfollow_match": {"service": "mdi:bell-minus"},
+    "mute_match": {"service": "mdi:bell-off"},
+    "get_matches": {"service": "mdi:format-list-bulleted"},
+    "get_team": {"service": "mdi:shield-account"},
+    "search_team": {"service": "mdi:magnify"},
+    "add_favorite": {"service": "mdi:star-plus"},
+    "remove_favorite": {"service": "mdi:star-minus"}
+  }
+}
