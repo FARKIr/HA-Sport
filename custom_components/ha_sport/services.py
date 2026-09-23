@@ -31,6 +31,7 @@ SERVICE_SEARCH_TEAM = "search_team"
 SERVICE_ADD_FAVORITE = "add_favorite"
 SERVICE_REMOVE_FAVORITE = "remove_favorite"
 SERVICE_TEST_NOTIFICATION = "test_notification"
+SERVICE_GET_EVENT = "get_event"
 
 EVENT_SCHEMA = vol.Schema({vol.Required(ATTR_EVENT_ID): vol.Coerce(int)})
 
@@ -125,6 +126,9 @@ def async_register_services(hass: HomeAssistant) -> None:
     async def get_team(call: ServiceCall) -> ServiceResponse:
         return _runtimes(hass)[0].coordinator.team_summary(call.data[ATTR_TEAM_ID])
 
+    async def get_event(call: ServiceCall) -> ServiceResponse:
+        return await _runtimes(hass)[0].coordinator.async_event_detail(call.data[ATTR_EVENT_ID])
+
     async def search_team(call: ServiceCall) -> ServiceResponse:
         rt = _runtimes(hass)[0]
         return {"teams": await search_teams(rt, call.data[ATTR_QUERY], call.data.get("sport"))}
@@ -183,6 +187,9 @@ def async_register_services(hass: HomeAssistant) -> None:
         schema=vol.Schema({vol.Required(ATTR_TEAM_ID): vol.Coerce(int)}),
     )
     hass.services.async_register(DOMAIN, SERVICE_TEST_NOTIFICATION, test_notification)
+    hass.services.async_register(
+        DOMAIN, SERVICE_GET_EVENT, get_event, schema=EVENT_SCHEMA, supports_response=SupportsResponse.ONLY
+    )
 
 
 async def search_teams(rt, query: str, sport: str | None = None) -> list[dict[str, Any]]:

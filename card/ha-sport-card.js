@@ -12,11 +12,12 @@
  * so it always has the full data (brackets, tables, odds, streams) without
  * bloating entity attributes.
  */
-const CARD_VERSION = "1.1.1";
+const CARD_VERSION = "1.2.0";
 const WS = "ha_sport";
 
 const I18N = {
   cs: {
+    timeline: "Průběh", stats: "Statistiky", lineups: "Sestavy", h2h: "Vzájemné zápasy", fans: "Tip fanoušků", bookmakers: "Kurzy sázkových kanceláří", best: "nejlepší", subs: "Náhradníci", detail_loading: "Načítám detail…", opening: "otevírací", wins: "výhry", draws: "remízy", unconfirmed: "předpokládané",
     upcoming: "Nadcházející", live: "Živě", results: "Výsledky", all: "Vše", search: "Hledat tým, soutěž nebo město…",
     no_matches: "Žádné zápasy", loading: "Načítám…", today: "Dnes", tomorrow: "Zítra", yesterday: "Včera",
     watch: "Sledovat", detail: "Detail", odds: "Kurzy", draw: "Remíza", win_prob: "Šance na výhru",
@@ -28,6 +29,7 @@ const I18N = {
     days: ["ne", "po", "út", "st", "čt", "pá", "so"], min: "min", h: "h", d_: "d", free: "zdarma", error: "Chyba zdroje dat",
   },
   sk: {
+    timeline: "Priebeh", stats: "Štatistiky", lineups: "Zostavy", h2h: "Vzájomné zápasy", fans: "Tip fanúšikov", bookmakers: "Kurzy stávkových kancelárií", best: "najlepší", subs: "Náhradníci", detail_loading: "Načítavam detail…", opening: "otváracie", wins: "výhry", draws: "remízy", unconfirmed: "predpokladané",
     upcoming: "Nadchádzajúce", live: "Naživo", results: "Výsledky", all: "Všetko", search: "Hľadať tím, súťaž alebo mesto…",
     no_matches: "Žiadne zápasy", loading: "Načítavam…", today: "Dnes", tomorrow: "Zajtra", yesterday: "Včera",
     watch: "Pozerať", detail: "Detail", odds: "Kurzy", draw: "Remíza", win_prob: "Šanca na výhru",
@@ -39,6 +41,7 @@ const I18N = {
     days: ["ne", "po", "ut", "st", "št", "pi", "so"], min: "min", h: "h", d_: "d", free: "zadarmo", error: "Chyba zdroja dát",
   },
   en: {
+    timeline: "Timeline", stats: "Statistics", lineups: "Lineups", h2h: "Head to head", fans: "Fans' tip", bookmakers: "Bookmakers' odds", best: "best", subs: "Substitutes", detail_loading: "Loading detail…", opening: "opening", wins: "wins", draws: "draws", unconfirmed: "expected",
     upcoming: "Upcoming", live: "Live", results: "Results", all: "All", search: "Search team, competition or city…",
     no_matches: "No matches", loading: "Loading…", today: "Today", tomorrow: "Tomorrow", yesterday: "Yesterday",
     watch: "Watch", detail: "Details", odds: "Odds", draw: "Draw", win_prob: "Win chance",
@@ -113,6 +116,27 @@ const STYLE = `
   a.btn ha-icon { --mdc-icon-size:16px; }
   .empty { padding:24px 16px; text-align:center; color:var(--secondary-text-color); }
   .err { padding:4px 16px; color:var(--error-color); font-size:.8em; }
+  /* match detail (Livesport-like) */
+  .xd { display:flex; flex-direction:column; gap:10px; margin-top:4px; color:var(--primary-text-color); }
+  .xd h5 { margin:0 0 4px; font-size:.75em; text-transform:uppercase; letter-spacing:.05em; color:var(--secondary-text-color); }
+  .tl { display:flex; flex-direction:column; gap:2px; }
+  .tl .it { display:grid; grid-template-columns:1fr 44px 1fr; align-items:center; gap:6px; }
+  .tl .it .m { text-align:center; font-size:.8em; color:var(--secondary-text-color); }
+  .tl .it .h { text-align:right; } .tl .it .a { text-align:left; }
+  .tl .per { text-align:center; font-size:.75em; color:var(--secondary-text-color); border-top:1px dashed var(--divider-color); padding-top:2px; }
+  .st { display:grid; grid-template-columns:44px 1fr 44px; gap:6px; align-items:center; font-size:.85em; }
+  .st .nm { grid-column:1 / 4; text-align:center; font-size:.8em; color:var(--secondary-text-color); margin-top:4px; }
+  .st .v { text-align:center; font-weight:600; }
+  .sbar { display:flex; height:6px; border-radius:3px; overflow:hidden; background:var(--divider-color); grid-column:1 / 4; }
+  .sbar div:first-child { background:var(--primary-color); } .sbar div:last-child { background:var(--accent-color,#ff9800); }
+  .bm { width:100%; border-collapse:collapse; font-size:.85em; }
+  .bm td, .bm th { padding:3px 4px; text-align:center; border-top:1px solid var(--divider-color); }
+  .bm td:first-child, .bm th:first-child { text-align:left; }
+  .bm .best { font-weight:700; color:var(--success-color,#43a047); }
+  .lu { display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:.85em; }
+  .lu ol { margin:2px 0; padding-left:18px; }
+  .chipline { display:flex; gap:6px; flex-wrap:wrap; font-size:.85em; }
+  .chipline span { background:var(--card-background-color); border:1px solid var(--divider-color); border-radius:10px; padding:1px 8px; }
   /* team card */
   .match { padding:8px 16px 4px; }
   .meta { text-align:center; font-size:.85em; color:var(--secondary-text-color); }
@@ -546,12 +570,81 @@ class HaSportCard extends HTMLElement {
           ${ev.home.periods?.length ? `<div>${esc(t.score)}: ${ev.home.periods.map((p, i) => `${p}:${ev.away.periods[i] ?? "-"}`).join(", ")}</div>` : ""}
           ${!done ? this._oddsBlock(ev, favH ? ev.home.id : favA ? ev.away.id : null) : ""}
           ${this._streamLinks(ev)}
+          ${this._detailHtml(ev)}
         </div>`
       : "";
     return `<div class="row ${favH || favA ? "fav" : ""}" data-action="expand" data-id="${ev.id}">
         ${time}<div class="teams">${team(ev.home, "h")}${team(ev.away, "a")}</div>
         <div class="right">${right}${tv}${this._bell(ev)}</div>
       </div>${detail}`;
+  }
+
+  async _loadDetail(id) {
+    this._details = this._details || {};
+    const cached = this._details[id];
+    if (cached && cached.status === "finished") return;
+    try {
+      this._details[id] = await this._ws({ type: "event_detail", event_id: id });
+    } catch (e) {
+      this._details[id] = { error: e?.message || String(e) };
+    }
+    if (this._state.expanded === id) this._renderBody();
+  }
+
+  _detailHtml(ev) {
+    if (this._config.show_detail === false) return "";
+    const t = this.t;
+    const det = (this._details || {})[ev.id];
+    if (!det) return `<div class="xd"><small>${t.detail_loading}</small></div>`;
+    if (det.error) return `<div class="xd"><small>${esc(det.error)}</small></div>`;
+    const parts = [];
+    // timeline
+    const inc = det.incidents || [];
+    if (inc.length) {
+      const icon = (i) => i.type === "goal" ? "⚽" : i.type === "var" ? "📺" : i.card === "yellow" ? "🟨" : i.card === "second_yellow" ? "🟨🟥" : "🟥";
+      const rows = inc.map((i) => {
+        if (i.type === "period") return `<div class="per">${esc(i.text)} · ${esc(i.score)}</div>`;
+        const txt = `${icon(i)} ${esc(i.player || "")}${i.assist ? ` <small>(${esc(i.assist)})</small>` : ""}${i.detail && i.type !== "var" ? ` <small>${esc(i.detail)}</small>` : ""}${i.type === "goal" ? ` <b>${esc(i.score)}</b>` : ""}`;
+        return `<div class="it"><div class="h">${i.is_home ? txt : ""}</div><div class="m">${esc(i.minute || "")}</div><div class="a">${i.is_home ? "" : txt}</div></div>`;
+      }).join("");
+      parts.push(`<div><h5>${t.timeline}</h5><div class="tl">${rows}</div></div>`);
+    }
+    // statistics
+    const stats = (det.statistics || []).slice(0, this._config.max_stats || 10);
+    if (stats.length) {
+      const rows = stats.map((x) => {
+        const h = Number(x.home_value ?? parseFloat(x.home)) || 0;
+        const a = Number(x.away_value ?? parseFloat(x.away)) || 0;
+        const tot = h + a || 1;
+        return `<div class="nm">${esc(x.name)}</div><div class="v">${esc(x.home)}</div><div></div><div class="v">${esc(x.away)}</div>
+          <div class="sbar"><div style="width:${(h / tot) * 100}%"></div><div style="width:${(a / tot) * 100}%"></div></div>`;
+      }).join("");
+      parts.push(`<div><h5>${t.stats}</h5><div class="st">${rows}</div></div>`);
+    }
+    // bookmakers
+    const o = det.odds || {};
+    if ((o.bookmakers || []).length > 1) {
+      const keys = ["1", "X", "2"].filter((k) => o.bookmakers.some((b) => b[k]));
+      const cell = (b, k) => (b[k] ? `<td class="${o.best?.[k] === b[k] ? "best" : ""}">${b[k].toFixed(2)}</td>` : "<td>–</td>");
+      const open = o.opening && Object.keys(o.opening).length
+        ? `<tr><td><small>${t.opening}</small></td>${keys.map((k) => `<td><small>${o.opening[k] ? o.opening[k].toFixed(2) : "–"}</small></td>`).join("")}</tr>` : "";
+      parts.push(`<div><h5>${t.bookmakers}</h5><table class="bm"><tr><th></th>${keys.map((k) => `<th>${k}</th>`).join("")}</tr>
+        ${o.bookmakers.map((b) => `<tr><td>${esc(b.name)}</td>${keys.map((k) => cell(b, k)).join("")}</tr>`).join("")}${open}</table></div>`);
+    }
+    // h2h + fans
+    const chips = [];
+    if (det.h2h) chips.push(`<span>${t.h2h}: ${esc(ev.home.short)} ${det.h2h.home_wins} · ${t.draws} ${det.h2h.draws} · ${esc(ev.away.short)} ${det.h2h.away_wins}</span>`);
+    if (det.votes) chips.push(`<span>${t.fans}: 1 ${det.votes["1"]} % · X ${det.votes.X} % · 2 ${det.votes["2"]} %</span>`);
+    if (chips.length) parts.push(`<div class="chipline">${chips.join("")}</div>`);
+    // lineups
+    const lu = det.lineups;
+    if (lu && (lu.home?.starters || []).length) {
+      const col = (side, tm) => `<div><b>${esc(tm.short)}</b>${side.formation ? ` <small>${esc(side.formation)}</small>` : ""}
+        <ol>${(side.starters || []).map((p) => `<li>${p.number ? `<small>${esc(p.number)}</small> ` : ""}${esc(p.name)}</li>`).join("")}</ol>
+        ${(side.missing || []).length ? `<small>❌ ${side.missing.map(esc).join(", ")}</small>` : ""}</div>`;
+      parts.push(`<div><h5>${t.lineups}${lu.confirmed ? "" : ` <small>(${t.unconfirmed})</small>`}</h5><div class="lu">${col(lu.home, ev.home)}${col(lu.away, ev.away)}</div></div>`);
+    }
+    return parts.length ? `<div class="xd">${parts.join("")}</div>` : "";
   }
 
   _matchesHtml(matches) {
@@ -616,7 +709,10 @@ class HaSportCard extends HTMLElement {
           ${live ? `<span class="badge-live">${t.live}</span>` : ""}</div>
         <div class="vs">${side(ev.home, meHome)}<div class="center">${center}</div>${side(ev.away, !meHome)}</div>
         ${ev.venue || ev.city ? `<div class="meta">📍 ${esc([ev.venue, ev.city].filter(Boolean).join(", "))}</div>` : ""}
+        ${(ev.incidents || []).filter((i) => i.type === "goal").length ? `<div class="meta">⚽ ${ev.incidents.filter((i) => i.type === "goal").map((i) => `${esc(i.player || "?")} ${esc(i.minute || "")}`).join(", ")}</div>` : ""}
         ${!done && c.show_odds !== false ? this._oddsBlock(ev, team.id) : ""}
+        ${ev.odds?.best && ev.odds?.bookmakers?.length > 1 ? `<div class="meta">${t.best}: ${esc(ev.odds.best_bookmaker?.[ev.home.id === Number(team.id) ? "1" : "2"] || "")} ${(ev.odds.best[ev.home.id === Number(team.id) ? "1" : "2"] || 0).toFixed(2)}</div>` : ""}
+        ${ev.h2h || ev.votes ? `<div class="chipline" style="justify-content:center;margin:4px 0">${ev.h2h ? `<span>${t.h2h}: ${ev.h2h.home_wins}–${ev.h2h.draws}–${ev.h2h.away_wins}</span>` : ""}${ev.votes ? `<span>${t.fans}: 1 ${ev.votes["1"]} % · X ${ev.votes.X} % · 2 ${ev.votes["2"]} %</span>` : ""}</div>` : ""}
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">${this._streamLinks(ev)}${this._bell(ev)}</div>
       </div>
       ${others.length ? `<div class="day">${t.this_week}</div><div class="mini-list">${others.map((e) => this._matchRow(e)).join("")}</div>` : ""}
@@ -719,6 +815,7 @@ class HaSportCard extends HTMLElement {
       const id = Number(el.dataset.id);
       s.expanded = s.expanded === id ? null : id;
       this._renderBody();
+      if (s.expanded && this._config.show_detail !== false) this._loadDetail(id);
     } else if (a === "tree") {
       s.treeIdx = Number(el.dataset.v);
       this._renderBody();
@@ -803,6 +900,7 @@ class HaSportCardEditor extends HTMLElement {
             { name: "show_filter", selector: { boolean: {} } },
             { name: "favorites_only", selector: { boolean: {} } },
             { name: "show_odds", selector: { boolean: {} } },
+            { name: "show_detail", selector: { boolean: {} } },
             { name: "days", selector: { number: { min: 1, max: 60, mode: "box" } } },
             { name: "limit", selector: { number: { min: 5, max: 300, mode: "box" } } },
           ],
@@ -829,7 +927,7 @@ class HaSportCardEditor extends HTMLElement {
       this._form = document.createElement("ha-form");
       this._form.computeLabel = (s) => ({
         mode: "Režim karty", title: "Nadpis", competition_id: "Soutěž", team_id: "Tým", sport: "Sport", city: "Město (filtr)",
-        show_filter: "Zobrazit vyhledávání", favorites_only: "Jen oblíbené", show_odds: "Zobrazit kurzy", days: "Dní dopředu",
+        show_filter: "Zobrazit vyhledávání", favorites_only: "Jen oblíbené", show_odds: "Zobrazit kurzy", show_detail: "Detail zápasu po kliknutí", days: "Dní dopředu",
         limit: "Max. zápasů", max_rows: "Max. řádků", short_names: "Krátké názvy",
       }[s.name] || s.name);
       this._form.addEventListener("value-changed", (ev) => {
@@ -842,7 +940,7 @@ class HaSportCardEditor extends HTMLElement {
       this.appendChild(this._form);
     }
     if (this._hass) this._form.hass = this._hass;
-    this._form.data = { show_filter: true, show_odds: true, ...this._config };
+    this._form.data = { show_filter: true, show_odds: true, show_detail: true, ...this._config };
     this._form.schema = this._schema();
   }
 }

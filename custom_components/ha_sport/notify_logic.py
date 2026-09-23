@@ -90,6 +90,11 @@ def pre_match_message(event: dict[str, Any], minutes: int, tz=None) -> Message:
     )
 
 
+def new_incidents(old: dict[str, Any] | None, new: dict[str, Any], kind: str) -> list[dict[str, Any]]:
+    seen = {i.get("id") for i in (old or {}).get("incidents") or []}
+    return [i for i in new.get("incidents") or [] if i.get("type") == kind and i.get("id") not in seen]
+
+
 def diff_messages(
     old: dict[str, Any] | None,
     new: dict[str, Any],
@@ -98,6 +103,8 @@ def diff_messages(
     notify_score: bool = True,
     notify_periods: bool = True,
     notify_end: bool = True,
+    notify_cards: bool = True,
+    notify_lineups: bool = True,
 ) -> list[Message]:
     """Compare two snapshots of the same event and produce messages."""
     if old is None:
@@ -134,7 +141,16 @@ def diff_messages(
                 word = "Změna skóre"
                 scorer = None
             head = f"{emoji} {word}! {new['home']['short']} {score} {new['away']['short']}"
-            body = f"{scorer} · {minute}" if scorer else minute
+            goals = new_incidents(old, new, "goal")
+            if goals and goals[-1].get("player"):
+                g = goals[-1]
+                who = g["player"] + (f" ({g['detail']})" if g.get("detail") else "")
+                if g.get("assist"):
+                    who += f", asistence {g['assist']}"
+                team = new["home"]["name"] if g.get("is_home") else new["away"]["name"]
+                body = f"{who} · {g.get('minute') or minute} · {team}"
+            else:
+                body = f"{scorer} · {minute}" if scorer else minute
             out.append(Message(f"{eid}:score:{nh}-{na}", "score", head, body, new, {"scorer": scorer}))
 
     if (
@@ -153,6 +169,42 @@ def diff_messages(
                 new,
             )
         )
+
+    if notify_cards and new["status"] == STATUS_LIVE:
+        for card in new_incidents(old, new, "card"):
+            if card.get("card") not in ("red", "second_yellow"):
+                continue
+            team = new["home"]["name"] if card.get("is_home") else new["away"]["name"]
+            label = "Červená karta" if card["card"] == "red" else "Druhá žlutá"
+            out.append(
+                Message(
+                    f"{eid}:card:{card.get('id')}",
+                    "red_card",
+                    f"🟥 {label}: {card.get('player') or team}",
+                    f"{team} · {card.get('minute') or minute} · {new['home']['short']} {score} {new['away']['short']}",
+                    new,
+                )
+            )
+
+    if (
+        notify_lineups
+        and new["status"] == STATUS_NOT_STARTED
+        and (new.get("lineups") or {}).get("confirmed")
+        and not (old.get("lineups") or {}).get("confirmed")
+    ):
+        lu = new["lineups"]
+
+        def names(side: dict[str, Any]) -> str:
+            return ", ".join(p["name"] for p in side.get("starters", []) if p.get("name"))
+
+        body = f"{new['home']['short']}"
+        if lu["home"].get("formation"):
+            body += f" ({lu['home']['formation']})"
+        body += f": {names(lu['home'])}\n{new['away']['short']}"
+        if lu["away"].get("formation"):
+            body += f" ({lu['away']['formation']})"
+        body += f": {names(lu['away'])}"
+        out.append(Message(f"{eid}:lineups", "lineups", f"📋 Sestavy: {title}", body, new))
 
     if notify_end and old["status"] != STATUS_FINISHED and new["status"] == STATUS_FINISHED:
         out.append(
@@ -175,4 +227,30 @@ def live_update_message(event: dict[str, Any], slot: int) -> Message:
         f"{emoji} {event['home']['short']} {score_text(event)} {event['away']['short']}",
         " · ".join(p for p in (event.get("minute") or event.get("status_text"), event.get("competition")) if p),
         event,
+    )
+
+
+def odds_change_message(
+    old: dict[str, Any] | None, new: dict[str, Any], outcome: str, threshold: float
+) -> Message | None:
+    """Odd on an outcome ('1', 'X', '2') moved by at least ``threshold`` % since the last alert."""
+    if not old or new["status"] != STATUS_NOT_STARTED:
+        return None
+    before = (old.get("odds") or {}).get(outcome)
+    after = (new.get("odds") or {}).get(outcome)
+    if not before or not after or before == after:
+        return None
+    pct = (after - before) / before * 100
+    if abs(pct) < threshold:
+        return None
+    team = {"1": new["home"]["name"], "2": new["away"]["name"], "X": "remízu"}[outcome]
+    arrow = "📉 klesl" if pct < 0 else "📈 stoupl"
+    emoji = SPORT_EMOJI.get(new["sport"], "🏆")
+    return Message(
+        f"{new['id']}:odds:{outcome}:{after}",
+        "odds_change",
+        f"{emoji} Kurz na {team} {arrow} na {after:.2f}",
+        f"{event_title(new)} · z {before:.2f} ({pct:+.0f} %) · {format_kickoff(new.get('timestamp'))}",
+        new,
+        {"outcome": outcome, "old_odds": before, "new_odds": after, "change_pct": round(pct, 1)},
     )

@@ -15,13 +15,14 @@ před začátkem, góly, průběžné stavy a konečný výsledek.
 | **Zápasy** | Nadcházející, živé (minuta / třetina / čtvrtina), výsledky, datum a čas, kolo, stadion a město |
 | **Tabulky** | Pořadí, body, skóre, barevné označení postupových a sestupových míst, zvýraznění oblíbených týmů |
 | **Pavouk** | Play-off / pohárový pavouk: stav série, vítěz, živé série, termín dalšího zápasu a kurz |
-| **Kurzy** | 1 / X / 2 v desetinném formátu, pohyb kurzu (▲▼), pravděpodobnost výhry bez marže sázkovky |
+| **Kurzy** | 1 / X / 2 z **více zdrojů** – výchozí zdroj Sofascore + české/slovenské sázkové kanceláře (dle Sofascore) + volitelně The Odds API. Porovnání sázkovek, **nejlepší kurz**, otevírací kurz a jeho změna, pravděpodobnost výhry (průměr sázkovek bez marže), **senzory kurzů pro automatizace**, upozornění na pohyb kurzu |
 | **Kde sledovat** | TV kanály ze zdroje dat a odkazy na streamy (Oneplay, ČT sport, Voyo, JOJ Šport / JOJ Play, STVR, TVCOM, Tipsport TV, Tipos TV…). Když zdroj kanál neuvádí, odhadne vysílatele podle práv dané soutěže (v kartě označeno `*`). |
 | **Oblíbené týmy** | Každý má vlastní zařízení se senzory: příští zápas (s kurzem na váš tým), poslední výsledek, forma (V/R/P), pozice v tabulce, „právě hraje“, „hraje dnes“ |
 | **Filtr** | Hledání podle názvu týmu, soutěže, **města** nebo stadionu (bez ohledu na diakritiku), podle sportu, jen oblíbené |
-| **Oznámení** | X minut před začátkem (víc časů najednou, i vlastní), začátek zápasu, góly, konec poločasu/třetiny, průběžný stav každých N minut, konečný výsledek, tichý režim, push na mobil s tlačítkem **📺 Sledovat** |
+| **Oznámení** | X minut před začátkem (víc časů najednou, i vlastní), začátek zápasu, góly **se jménem střelce**, **červené karty**, **zveřejněné sestavy**, **pohyb kurzu**, konec poločasu/třetiny, průběžný stav každých N minut, konečný výsledek, tichý režim, push na mobil s tlačítkem **📺 Sledovat** |
 | **Kalendáře** | `calendar.*_zapasy` a `calendar.*_zapasy_oblibenych` – fungují v kalendáři HA i v automatizacích |
 | **Karty** | Zápasy s filtrem, můj tým, chytrá karta, pavouk, tabulka – s vizuálním editorem (samostatný soubor `card/ha-sport-card.js`, instaluje se zvlášť) |
+| **Detail zápasu** | Jako na Livesportu: průběh (góly se střelci a asistencemi, karty, VAR), statistiky (držení míče, střely, xG…), sestavy s rozestavením a chybějícími hráči, vzájemné zápasy, tip fanoušků |
 | **Automatizace** | Události `ha_sport_notification` a `ha_sport_match_update`, služby vracející data (`get_matches`, `get_team`, `search_team`) |
 
 ## Instalace
@@ -50,7 +51,7 @@ Kartu přidáte ručně:
 1. Stáhněte [`card/ha-sport-card.js`](card/ha-sport-card.js) a uložte ho do `/config/www/ha-sport-card.js`
    (složku `www` případně vytvořte; po jejím prvním vytvoření restartujte HA).
 2. *Nastavení → Nástěnky → ⋮ → Zdroje → Přidat zdroj*
-   * URL: `/local/ha-sport-card.js?v=1.1.1`
+   * URL: `/local/ha-sport-card.js?v=1.2.0`
    * Typ: **JavaScript modul**
 3. Obnovte prohlížeč (Ctrl+F5, v mobilní aplikaci *Nastavení → Aplikace → Obnovit frontend*).
 
@@ -76,7 +77,10 @@ title: Zápasy CZ/SK
 # city: Brno            # pevný filtr podle města
 # favorites_only: true
 # days: 14
+# show_detail: false    # vypnout detail zápasu po kliknutí
 ```
+Kliknutím na zápas se otevře detail jako na Livesportu: průběh (góly, karty), statistiky, kurzy všech sázkovek,
+vzájemné zápasy, tip fanoušků a sestavy.
 
 ### Můj tým – příští zápas s kurzem
 ```yaml
@@ -84,7 +88,8 @@ type: custom:ha-sport-team-card
 # team: Sparta   # název oblíbeného týmu (nebo team_id); bez něj zobrazí všechny oblíbené
 days: 7
 ```
-Ukazuje loga, datum a odpočet, kurzy 1/X/2 se zvýrazněním vašeho týmu a pravděpodobností,
+Ukazuje loga, datum a odpočet, kurzy 1/X/2 se zvýrazněním vašeho týmu a pravděpodobností, nejlepší kurz,
+vzájemné zápasy, tip fanoušků, střelce během zápasu,
 tlačítko streamu, zvonek pro oznámení, formu, pozici v tabulce a další zápasy v týdnu.
 Během zápasu zobrazuje živé skóre a minutu.
 
@@ -119,6 +124,8 @@ short_names: true
 | `sensor.<tym>_pristi_zapas` | Čas příštího / probíhajícího zápasu. Atributy: `opponent`, `home_away`, `odds_team`, `odds_draw`, `odds_opponent`, `win_probability`, `tv`, `stream_url`, `score`, `minute`, `starts_in_minutes`, `this_week`, `form` |
 | `sensor.<tym>_posledni_vysledek` | např. `Sparta 2:1 Slavia`, atribut `result` (výhra/remíza/prohra), `form` |
 | `sensor.<tym>_pozice_v_tabulce` | pozice, body, skóre |
+| `sensor.<tym>_kurz_na_vyhru` | **kurz na výhru** vašeho týmu v příštím zápase (číslo, s historií). Atributy: `odds_draw`, `odds_opponent`, `best_odds`, `best_bookmaker`, `opening`, `change_pct`, `trend`, `is_favorite`, `bookmakers`, `match`, `start` |
+| `sensor.<tym>_pravdepodobnost_vyhry` | pravděpodobnost výhry v % (z kurzů, bez marže). Atributy: `draw_probability`, `opponent_probability`, `fans_vote` |
 | `binary_sensor.<tym>_prave_hraje` | zapnuto během zápasu, atributy skóre a minuta |
 | `binary_sensor.<tym>_hraje_dnes` | zapnuto, když tým dnes hraje |
 | `binary_sensor.*_oblibeny_tym_hraje` | hraje kterýkoliv oblíbený tým |
@@ -140,6 +147,19 @@ Nastavení → HA Sport → Konfigurovat → **Oznámení**:
 * **Tichý režim**: v nastaveném čase se nic neposílá.
 
 Při živém zápasu se data obnovují automaticky rychleji (výchozí 60 s, od 20 minut před začátkem).
+
+### Kurzy z více zdrojů
+
+1. **Sofascore – výchozí poskytovatel** kurzů.
+2. **České / slovenské sázkové kanceláře**, které Sofascore nabízí pro vaši zemi. U zápasů oblíbených týmů
+   a sledovaných zápasů se porovná až *N* sázkovek (*Konfigurovat → Obecné → Počet sázkových kanceláří*).
+   U ostatních zápasů se použijí jen tehdy, když výchozí poskytovatel kurz nemá, což je u české ligy časté.
+3. **The Odds API** (volitelné): v *Konfigurovat → Obecné* vložte zdarma získaný API klíč (500 dotazů měsíčně).
+   Kurzy se stahují jen pro sporty, které se týkají Česka nebo Slovenska, a jen jednou za nastavený počet hodin.
+
+Výsledek: kurz 1/X/2, tabulka všech sázkovek, **nejlepší kurz** a kde je, otevírací kurz a jeho změna v %.
+Stav zdrojů najdete v atributu `odds` senzoru **Poslední aktualizace** (kolik zápasů má kurz, jaké sázkovky se použily,
+kolik dotazů na The Odds API zbývá).
 
 ### Vlastní automatizace
 Každé oznámení vyvolá událost `ha_sport_notification` (i v tichém režimu a když jsou oznámení vypnutá),
@@ -169,7 +189,36 @@ automation:
         target: {entity_id: media_player.televize}
 ```
 
-`kind` může být `pre_match`, `start`, `score`, `period`, `live_update`, `end`.
+`kind` může být `pre_match`, `start`, `score`, `red_card`, `lineups`, `odds_change`, `period`, `live_update`, `end`.
+
+Další události: `ha_sport_match_update` (změna skóre nebo stavu) a `ha_sport_odds_change`. Ta se vyvolá vždy,
+když se kurz na oblíbený tým pohne o nastavené procento; data jsou `outcome`, `old_odds`, `new_odds` a `change_pct`.
+
+```yaml
+  - alias: "Kurz na Spartu je pod 1.80 – připomenout tiket"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.ac_sparta_praha_kurz_na_vyhru
+        below: 1.8
+    action:
+      - service: notify.mobile_app_telefon
+        data:
+          title: "Sparta je jasný favorit"
+          message: >
+            {{ state_attr('sensor.ac_sparta_praha_kurz_na_vyhru', 'match') }}:
+            kurz {{ states('sensor.ac_sparta_praha_kurz_na_vyhru') }}
+            (nejlepší {{ state_attr('sensor.ac_sparta_praha_kurz_na_vyhru', 'best_odds') }}
+            u {{ state_attr('sensor.ac_sparta_praha_kurz_na_vyhru', 'best_bookmaker') }})
+
+  - alias: "Kurz se výrazně pohnul"
+    trigger:
+      - platform: event
+        event_type: ha_sport_odds_change
+    action:
+      - service: persistent_notification.create
+        data:
+          message: "{{ trigger.event.data.home }} – {{ trigger.event.data.away }}: {{ trigger.event.data.old_odds }} → {{ trigger.event.data.new_odds }} ({{ trigger.event.data.change_pct }} %)"
+```
 Každá změna skóre nebo stavu sledovaného zápasu vyvolá také `ha_sport_match_update`.
 
 ## Služby
@@ -178,6 +227,7 @@ Každá změna skóre nebo stavu sledovaného zápasu vyvolá také `ha_sport_ma
 |---|---|
 | `ha_sport.get_matches` | vrátí zápasy podle filtru (`sport`, `competition_id`, `team_id`, `query`, `city`, `status`, `favorites_only`, `days_ahead`, `days_back`, `limit`) |
 | `ha_sport.get_team` | příští a poslední zápas, forma, pozice |
+| `ha_sport.get_event` | kompletní detail zápasu: střelci, karty, statistiky, sestavy, vzájemné zápasy, tip fanoušků, kurzy všech sázkovek |
 | `ha_sport.search_team` | vyhledá tým (i reprezentaci) podle názvu nebo města |
 | `ha_sport.add_favorite` / `remove_favorite` | správa oblíbených týmů |
 | `ha_sport.follow_match` / `unfollow_match` / `mute_match` | oznámení pro konkrétní zápas |

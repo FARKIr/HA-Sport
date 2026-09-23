@@ -1,6 +1,10 @@
 import time
 
 from custom_components.ha_sport.models import (
+    merge_bookmakers,
+    odds_for_team,
+    parse_incidents,
+    parse_votes,
     filter_events,
     fraction_to_decimal,
     live_minute,
@@ -129,3 +133,27 @@ def test_filter_events_by_name_and_city():
     assert filter_events(events, favorites=[4])[0]["id"] == 2
     assert filter_events(events, status="results") == []
     assert len(filter_events(events, status="upcoming")) == 2
+
+
+def test_merge_bookmakers_best_and_probability():
+    merged = merge_bookmakers([("A", {"1": 2.0, "X": 3.4, "2": 3.6}), ("B", {"1": 2.2, "X": 3.2, "2": 3.3}), ("C", None)])
+    assert merged["source"] == "A" and merged["1"] == 2.0
+    assert merged["best"] == {"1": 2.2, "X": 3.4, "2": 3.6}
+    assert merged["best_bookmaker"]["1"] == "B"
+    assert 99 <= sum(merged["probability"].values()) <= 101
+    view = odds_for_team(merged, is_home=False)
+    assert view["team"] == 3.6 and view["opponent"] == 2.0 and view["team_best_bookmaker"] == "A"
+    assert merge_bookmakers([]) is None
+
+
+def test_incidents_and_votes():
+    inc = parse_incidents([
+        {"incidentType": "card", "id": 2, "incidentClass": "yellowRed", "time": 80, "isHome": True, "player": {"name": "X"}},
+        {"incidentType": "goal", "id": 1, "time": 45, "addedTime": 2, "incidentClass": "penalty", "isHome": False,
+         "homeScore": 0, "awayScore": 1, "player": {"shortName": "Y"}},
+        {"incidentType": "substitution", "time": 60},
+    ])
+    assert [i["type"] for i in inc] == ["goal", "card"]
+    assert inc[0]["minute"] == "45+2'" and inc[0]["detail"] == "penalta" and inc[1]["card"] == "second_yellow"
+    assert parse_votes({"vote": {"vote1": 1, "voteX": 1, "vote2": 2}})["2"] == 50
+    assert parse_votes({}) is None

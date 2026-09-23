@@ -52,14 +52,19 @@
           "notify_targets": "Kam posílat (notify služby)",
           "notify_persistent": "Zobrazit i jako oznámení v HA",
           "quiet_start": "Tichý režim od",
-          "quiet_end": "Tichý režim do"
+          "quiet_end": "Tichý režim do",
+          "notify_cards": "Oznámit červené karty",
+          "notify_lineups": "Oznámit zveřejnění sestav",
+          "notify_odds": "Oznámit pohyb kurzu na můj tým",
+          "odds_threshold": "Oznámit při změně kurzu o"
         },
         "data_description": {
           "notify_before": "Můžete vybrat více časů, nebo napsat vlastní počet minut (např. 45).",
           "notify_live_interval": "0 = vypnuto. Např. 15 = každých 15 minut pošle aktuální stav živého zápasu.",
           "notify_targets": "Např. notify.mobile_app_telefon – oznámení v aplikaci obsahuje tlačítko „Sledovat“ s odkazem na stream.",
           "quiet_start": "V tomto čase se oznámení neposílají (událost ha_sport_notification se ale vyvolá vždy).",
-          "notify_score": "U basketbalu se jednotlivé koše neoznamují, použijte průběžný stav."
+          "notify_score": "U basketbalu se jednotlivé koše neoznamují, použijte průběžný stav.",
+          "odds_threshold": "Např. 10 % = kurz 2,00 klesl na 1,80. Událost ha_sport_odds_change se vyvolá vždy."
         }
       }
     },
@@ -125,14 +130,19 @@
           "notify_targets": "Kam posílat (notify služby)",
           "notify_persistent": "Zobrazit i jako oznámení v HA",
           "quiet_start": "Tichý režim od",
-          "quiet_end": "Tichý režim do"
+          "quiet_end": "Tichý režim do",
+          "notify_cards": "Oznámit červené karty",
+          "notify_lineups": "Oznámit zveřejnění sestav",
+          "notify_odds": "Oznámit pohyb kurzu na můj tým",
+          "odds_threshold": "Oznámit při změně kurzu o"
         },
         "data_description": {
           "notify_before": "Můžete vybrat více časů, nebo napsat vlastní počet minut (např. 45).",
           "notify_live_interval": "0 = vypnuto. Např. 15 = každých 15 minut pošle aktuální stav živého zápasu.",
           "notify_targets": "Např. notify.mobile_app_telefon – oznámení v aplikaci obsahuje tlačítko „Sledovat“ s odkazem na stream.",
           "quiet_start": "V tomto čase se oznámení neposílají (událost ha_sport_notification se ale vyvolá vždy).",
-          "notify_score": "U basketbalu se jednotlivé koše neoznamují, použijte průběžný stav."
+          "notify_score": "U basketbalu se jednotlivé koše neoznamují, použijte průběžný stav.",
+          "odds_threshold": "Např. 10 % = kurz 2,00 klesl na 1,80. Událost ha_sport_odds_change se vyvolá vždy."
         }
       },
       "general": {
@@ -144,11 +154,16 @@
           "days_back": "Dní dozadu",
           "fetch_odds": "Stahovat kurzy",
           "fetch_tv": "Stahovat TV / streamy",
-          "base_url": "Adresa API"
+          "base_url": "Adresa API",
+          "odds_bookmakers": "Počet sázkových kanceláří k porovnání (oblíbené zápasy)",
+          "odds_api_key": "API klíč The Odds API (volitelný)",
+          "odds_api_interval": "Obnova kurzů z The Odds API"
         },
         "data_description": {
           "live_scan_interval": "Rychlé obnovování se zapne automaticky 20 minut před začátkem sledovaných zápasů.",
-          "base_url": "Obvykle ponechte výchozí. Při chybě se automaticky zkusí i záložní adresy."
+          "base_url": "Obvykle ponechte výchozí. Při chybě se automaticky zkusí i záložní adresy.",
+          "odds_api_key": "Druhý zdroj kurzů. Klíč zdarma po registraci na webu The Odds API (500 dotazů/měsíc). Prázdné = nepoužívat.",
+          "odds_bookmakers": "Kolik dalších sázkovek zkusit u zápasů oblíbených týmů. Porovnají se a vybere se nejlepší kurz."
         }
       }
     },
@@ -183,6 +198,12 @@
       },
       "status": {
         "name": "Poslední aktualizace"
+      },
+      "win_odds": {
+        "name": "Kurz na výhru"
+      },
+      "win_probability": {
+        "name": "Pravděpodobnost výhry"
       }
     },
     "binary_sensor": {
@@ -363,6 +384,16 @@
         "team_id": {
           "name": "ID týmu",
           "description": "ID týmu (Sofascore)."
+        }
+      }
+    },
+    "get_event": {
+      "name": "Detail zápasu",
+      "description": "Střelci, karty, statistiky, sestavy, vzájemné zápasy, tip fanoušků a kurzy všech sázkovek.",
+      "fields": {
+        "event_id": {
+          "name": "ID zápasu",
+          "description": "ID zápasu (atribut event_id / id)."
         }
       }
     }

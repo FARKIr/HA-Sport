@@ -14,6 +14,10 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_NOTIFY_BEFORE,
+    CONF_NOTIFY_CARDS,
+    CONF_NOTIFY_LINEUPS,
+    CONF_NOTIFY_ODDS,
+    CONF_ODDS_THRESHOLD,
     CONF_NOTIFY_ENABLED,
     CONF_NOTIFY_END,
     CONF_NOTIFY_LIVE_INTERVAL,
@@ -27,9 +31,11 @@ from .const import (
     CONF_QUIET_START,
     DEFAULT_NOTIFY_BEFORE,
     DEFAULT_NOTIFY_LIVE_INTERVAL,
+    DEFAULT_ODDS_THRESHOLD,
     DOMAIN,
     EVENT_MATCH_UPDATE,
     EVENT_NOTIFICATION,
+    EVENT_ODDS_CHANGE,
     NOTIFY_SCOPE_ALL,
     NOTIFY_SCOPE_FAVORITES,
     NOTIFY_SCOPE_FOLLOWED,
@@ -42,6 +48,7 @@ from .notify_logic import (
     diff_messages,
     in_quiet_hours,
     live_update_message,
+    odds_change_message,
     pre_match_message,
 )
 
@@ -62,6 +69,8 @@ class SportNotifier:
         self._unsub: Callable[[], None] | None = None
         self.enabled: bool = bool(coordinator.opt(CONF_NOTIFY_ENABLED, True))
         self.live_enabled: bool = True
+        # odds value at the last alert (or first seen) per "event:outcome"
+        self._odds_base: dict[str, float] = {}
 
     # --- lifecycle ------------------------------------------------------------
     @callback
@@ -69,6 +78,7 @@ class SportNotifier:
         self._unsub = self.coordinator.async_add_listener(self._handle_update)
         # initial snapshot, without sending diffs
         for ev in (self.coordinator.data or {}).get("events", []):
+            self._check_odds(ev)
             self._prev[ev["id"]] = copy.deepcopy(ev)
         self._schedule_reminders()
 
@@ -144,6 +154,8 @@ class SportNotifier:
                     notify_score=self.opt(CONF_NOTIFY_SCORE, True),
                     notify_periods=self.opt(CONF_NOTIFY_PERIODS, False),
                     notify_end=self.opt(CONF_NOTIFY_END, True),
+                    notify_cards=self.opt(CONF_NOTIFY_CARDS, True),
+                    notify_lineups=self.opt(CONF_NOTIFY_LINEUPS, True),
                 ):
                     self._send(msg)
                 interval = int(self.opt(CONF_NOTIFY_LIVE_INTERVAL, DEFAULT_NOTIFY_LIVE_INTERVAL) or 0)
@@ -151,8 +163,36 @@ class SportNotifier:
                     slot = int((now - ev["timestamp"]) // (interval * 60))
                     if slot > 0:
                         self._send(live_update_message(ev, slot))
+            self._check_odds(ev)
             self._prev[ev["id"]] = copy.deepcopy(ev)
         self._schedule_reminders()
+
+    @callback
+    def _check_odds(self, ev: dict[str, Any]) -> None:
+        """Alert when the odd on my team moved by the threshold since the last alert."""
+        odds = ev.get("odds") or {}
+        if ev["status"] != STATUS_NOT_STARTED or not odds:
+            return
+        fav = self.coordinator.favorites
+        outcomes = [o for o, side in (("1", "home"), ("2", "away")) if ev[side]["id"] in fav]
+        if not outcomes and ev["id"] in self.coordinator.followed:
+            outcomes = ["1", "2"]
+        threshold = float(self.opt(CONF_ODDS_THRESHOLD, DEFAULT_ODDS_THRESHOLD) or DEFAULT_ODDS_THRESHOLD)
+        for outcome in outcomes:
+            if not odds.get(outcome):
+                continue
+            key = f"{ev['id']}:{outcome}"
+            base = self._odds_base.setdefault(key, odds[outcome])
+            msg = odds_change_message({"odds": {outcome: base}}, ev, outcome, threshold)
+            if msg is None:
+                continue
+            self._odds_base[key] = odds[outcome]
+            self.hass.bus.async_fire(
+                EVENT_ODDS_CHANGE,
+                {"event_id": ev["id"], "home": ev["home"]["name"], "away": ev["away"]["name"], **msg.extra},
+            )
+            if self.opt(CONF_NOTIFY_ODDS, False) and self.in_scope(ev):
+                self._send(msg)
 
     @callback
     def _schedule_reminders(self) -> None:

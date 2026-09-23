@@ -138,3 +138,13 @@ remove_favorite:
           min: 1
           max: 999999999
           mode: box
+
+get_event:
+  fields:
+    event_id:
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 999999999
+          mode: box

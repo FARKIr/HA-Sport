@@ -5,8 +5,8 @@ import time
 from datetime import datetime
 from typing import Any
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
-from homeassistant.const import EntityCategory
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
+from homeassistant.const import PERCENTAGE, EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
@@ -14,10 +14,11 @@ from homeassistant.util import dt as dt_util
 from . import SportConfigEntry
 from .const import SPORT_ICONS, SPORTS, STATUS_FINISHED, STATUS_LIVE, STATUS_NOT_STARTED
 from .entity import SportEntity, TeamEntity, compact_event
-from .models import event_title, score_text
+from .models import event_title, odds_for_team, score_text
 
 _BIG_ATTRS = frozenset(
-    {"upcoming", "results", "standings", "matches", "this_week", "recent", "live", "bracket_rounds"}
+    {"upcoming", "results", "standings", "matches", "this_week", "recent", "live", "bracket_rounds",
+     "bookmakers", "goals", "streams", "h2h", "fans_vote"}
 )
 
 
@@ -37,6 +38,8 @@ async def async_setup_entry(
         entities.append(TeamNextMatchSensor(coord, team))
         entities.append(TeamLastResultSensor(coord, team))
         entities.append(TeamPositionSensor(coord, team))
+        entities.append(TeamOddsSensor(coord, team))
+        entities.append(TeamWinProbabilitySensor(coord, team))
     async_add_entities(entities)
 
 
@@ -174,6 +177,13 @@ class TeamNextMatchSensor(TeamEntity, SensorEntity):
                 "streams": streams,
                 "url": nxt.get("url"),
                 "followed": nxt["id"] in self.coordinator.followed,
+                "odds_best_team": odds_for_team(odds, is_home)["team_best"],
+                "odds_best_bookmaker": odds_for_team(odds, is_home)["team_best_bookmaker"],
+                "bookmakers": odds.get("bookmakers"),
+                "h2h": nxt.get("h2h"),
+                "fans_vote": nxt.get("votes"),
+                "lineups_confirmed": bool((nxt.get("lineups") or {}).get("confirmed")),
+                "goals": [i for i in nxt.get("incidents") or [] if i.get("type") == "goal"],
                 "starts_in_minutes": max(0, int((nxt["timestamp"] - time.time()) // 60))
                 if nxt.get("timestamp") and nxt["status"] == STATUS_NOT_STARTED
                 else None,
@@ -334,7 +344,93 @@ class StatusSensor(SportEntity, SensorEntity):
             # name -> id, handy for YAML card config (competition_id / team_id)
             "competition_ids": {c.get("name"): c.get("id") for c in data.get("competitions", {}).values()},
             "team_ids": {t.get("name"): t.get("id") for t in data.get("favorites", [])},
+            "odds": data.get("odds_stats"),
             "update_interval_s": self.coordinator.update_interval.total_seconds()
             if self.coordinator.update_interval
             else None,
+        }
+
+
+class _TeamOddsBase(TeamEntity, SensorEntity):
+    """Common logic for odds based sensors of a favorite team."""
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _unrecorded_attributes = frozenset({"bookmakers", "opening", "change_pct"})
+
+    def _match(self) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+        nxt = self.coordinator.team_summary(self.team_id)["next"]
+        if not nxt or not nxt.get("odds"):
+            return nxt, {}
+        return nxt, odds_for_team(nxt["odds"], nxt["home"]["id"] == self.team_id)
+
+    def _common_attrs(self, nxt: dict[str, Any] | None) -> dict[str, Any]:
+        if not nxt:
+            return {}
+        odds = nxt.get("odds") or {}
+        is_home = nxt["home"]["id"] == self.team_id
+        mine = "1" if is_home else "2"
+        return {
+            "event_id": nxt["id"],
+            "match": event_title(nxt),
+            "start": nxt.get("start"),
+            "competition": nxt.get("competition"),
+            "status": nxt["status"],
+            "home_away": "doma" if is_home else "venku",
+            "opponent": (nxt["away"] if is_home else nxt["home"])["name"],
+            "source": odds.get("source"),
+            "bookmakers": odds.get("bookmakers"),
+            "opening": (odds.get("opening") or {}).get(mine),
+            "change_pct": (odds.get("change_pct") or {}).get(mine),
+        }
+
+
+class TeamOddsSensor(_TeamOddsBase):
+    """Odd on a win of my team in the next match (for automations)."""
+
+    _attr_translation_key = "win_odds"
+    _attr_icon = "mdi:cash-multiple"
+
+    def __init__(self, coordinator, team: dict[str, Any]) -> None:
+        super().__init__(coordinator, team, "win_odds")
+
+    @property
+    def native_value(self) -> float | None:
+        return self._match()[1].get("team")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        nxt, view = self._match()
+        return {
+            **self._common_attrs(nxt),
+            "odds_draw": view.get("draw"),
+            "odds_opponent": view.get("opponent"),
+            "best_odds": view.get("team_best"),
+            "best_bookmaker": view.get("team_best_bookmaker"),
+            "trend": view.get("team_trend"),
+            "is_favorite": bool(view.get("team") and view.get("opponent") and view["team"] < view["opponent"]),
+        }
+
+
+class TeamWinProbabilitySensor(_TeamOddsBase):
+    """Win probability derived from bookmakers' odds (margin removed)."""
+
+    _attr_translation_key = "win_probability"
+    _attr_icon = "mdi:percent-circle"
+    _attr_native_unit_of_measurement = PERCENTAGE
+
+    def __init__(self, coordinator, team: dict[str, Any]) -> None:
+        super().__init__(coordinator, team, "win_probability")
+
+    @property
+    def native_value(self) -> int | None:
+        return self._match()[1].get("probability")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        nxt, view = self._match()
+        return {
+            **self._common_attrs(nxt),
+            "draw_probability": view.get("probability_draw"),
+            "opponent_probability": view.get("probability_opponent"),
+            "fans_vote": (nxt or {}).get("votes"),
         }

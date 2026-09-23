@@ -35,6 +35,13 @@ from .const import (
     CONF_FETCH_TV,
     CONF_LIVE_SCAN_INTERVAL,
     CONF_NOTIFY_BEFORE,
+    CONF_NOTIFY_CARDS,
+    CONF_NOTIFY_LINEUPS,
+    CONF_NOTIFY_ODDS,
+    CONF_ODDS_API_INTERVAL,
+    CONF_ODDS_API_KEY,
+    CONF_ODDS_BOOKMAKERS,
+    CONF_ODDS_THRESHOLD,
     CONF_NOTIFY_ENABLED,
     CONF_NOTIFY_END,
     CONF_NOTIFY_LIVE_INTERVAL,
@@ -55,6 +62,9 @@ from .const import (
     DEFAULT_LIVE_SCAN_INTERVAL,
     DEFAULT_NOTIFY_BEFORE,
     DEFAULT_NOTIFY_LIVE_INTERVAL,
+    DEFAULT_ODDS_API_INTERVAL,
+    DEFAULT_ODDS_BOOKMAKERS,
+    DEFAULT_ODDS_THRESHOLD,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     NAME,
@@ -243,6 +253,12 @@ def notification_schema(defaults: dict[str, Any], hass: HomeAssistant) -> vol.Sc
             vol.Optional(CONF_NOTIFY_TARGETS, default=defaults.get(CONF_NOTIFY_TARGETS, [])): _sel(
                 _notify_services(hass), custom=True, mode=SelectSelectorMode.DROPDOWN
             ),
+            vol.Required(CONF_NOTIFY_CARDS, default=defaults.get(CONF_NOTIFY_CARDS, True)): BooleanSelector(),
+            vol.Required(CONF_NOTIFY_LINEUPS, default=defaults.get(CONF_NOTIFY_LINEUPS, True)): BooleanSelector(),
+            vol.Required(CONF_NOTIFY_ODDS, default=defaults.get(CONF_NOTIFY_ODDS, False)): BooleanSelector(),
+            vol.Required(
+                CONF_ODDS_THRESHOLD, default=defaults.get(CONF_ODDS_THRESHOLD, DEFAULT_ODDS_THRESHOLD)
+            ): NumberSelector(NumberSelectorConfig(min=2, max=50, step=1, mode=NumberSelectorMode.SLIDER, unit_of_measurement="%")),
             vol.Required(CONF_NOTIFY_PERSISTENT, default=defaults.get(CONF_NOTIFY_PERSISTENT, False)): BooleanSelector(),
             vol.Optional(CONF_QUIET_START, description={"suggested_value": defaults.get(CONF_QUIET_START)}): TimeSelector(),
             vol.Optional(CONF_QUIET_END, description={"suggested_value": defaults.get(CONF_QUIET_END)}): TimeSelector(),
@@ -253,6 +269,7 @@ def notification_schema(defaults: dict[str, Any], hass: HomeAssistant) -> vol.Sc
 def clean_notification_input(user_input: dict[str, Any]) -> dict[str, Any]:
     data = dict(user_input)
     data[CONF_NOTIFY_LIVE_INTERVAL] = int(data.get(CONF_NOTIFY_LIVE_INTERVAL) or 0)
+    data[CONF_ODDS_THRESHOLD] = int(data.get(CONF_ODDS_THRESHOLD) or DEFAULT_ODDS_THRESHOLD)
     data[CONF_NOTIFY_BEFORE] = [str(int(v)) for v in data.get(CONF_NOTIFY_BEFORE, []) if str(v).strip().isdigit()]
     data.setdefault(CONF_QUIET_START, None)
     data.setdefault(CONF_QUIET_END, None)
@@ -485,8 +502,10 @@ class SportOptionsFlow(OptionsFlow):
     async def async_step_general(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
             data = dict(user_input)
-            for key in (CONF_SCAN_INTERVAL, CONF_LIVE_SCAN_INTERVAL, CONF_DAYS_AHEAD, CONF_DAYS_BACK):
+            for key in (CONF_SCAN_INTERVAL, CONF_LIVE_SCAN_INTERVAL, CONF_DAYS_AHEAD, CONF_DAYS_BACK, CONF_ODDS_BOOKMAKERS):
                 data[key] = int(data[key])
+            data[CONF_ODDS_API_INTERVAL] = float(data[CONF_ODDS_API_INTERVAL])
+            data[CONF_ODDS_API_KEY] = (data.get(CONF_ODDS_API_KEY) or "").strip()
             return self._save(data)
         schema = vol.Schema(
             {
@@ -503,6 +522,15 @@ class SportOptionsFlow(OptionsFlow):
                     NumberSelectorConfig(min=1, max=60, mode=NumberSelectorMode.BOX, unit_of_measurement="dní")
                 ),
                 vol.Required(CONF_FETCH_ODDS, default=self._get(CONF_FETCH_ODDS, True)): BooleanSelector(),
+                vol.Required(
+                    CONF_ODDS_BOOKMAKERS, default=self._get(CONF_ODDS_BOOKMAKERS, DEFAULT_ODDS_BOOKMAKERS)
+                ): NumberSelector(NumberSelectorConfig(min=0, max=10, mode=NumberSelectorMode.BOX)),
+                vol.Optional(
+                    CONF_ODDS_API_KEY, description={"suggested_value": self._get(CONF_ODDS_API_KEY, "")}
+                ): TextSelector(),
+                vol.Required(
+                    CONF_ODDS_API_INTERVAL, default=self._get(CONF_ODDS_API_INTERVAL, DEFAULT_ODDS_API_INTERVAL)
+                ): NumberSelector(NumberSelectorConfig(min=1, max=48, mode=NumberSelectorMode.BOX, unit_of_measurement="h")),
                 vol.Required(CONF_FETCH_TV, default=self._get(CONF_FETCH_TV, True)): BooleanSelector(),
                 vol.Required(CONF_BASE_URL, default=self._get(CONF_BASE_URL, DEFAULT_BASE_URL)): TextSelector(),
             }

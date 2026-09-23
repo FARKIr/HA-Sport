@@ -520,3 +520,190 @@ def score_text(event: dict[str, Any]) -> str:
     if h is None or a is None:
         return "-:-"
     return f"{h}:{a}"
+
+
+# --- Odds from several bookmakers -------------------------------------------------
+def merge_bookmakers(sources: list[tuple[str, dict[str, Any]]]) -> dict[str, Any] | None:
+    """Combine odds of several bookmakers.
+
+    The first source stays the "main" odds (1/X/2 keys, trend), plus:
+    ``bookmakers`` (all sources), ``best`` / ``best_bookmaker`` (highest odd per
+    outcome) and ``probability`` averaged over all bookmakers (margin removed).
+    """
+    sources = [(name, o) for name, o in sources if o and o.get("1") and o.get("2")]
+    if not sources:
+        return None
+    main = dict(sources[0][1])
+    main["source"] = sources[0][0]
+    main["bookmakers"] = [
+        {"name": name, **{k: o.get(k) for k in ("1", "X", "2") if o.get(k)}} for name, o in sources
+    ]
+    best: dict[str, float] = {}
+    best_bm: dict[str, str] = {}
+    probs: dict[str, list[float]] = {}
+    for name, o in sources:
+        inv = {k: 1 / o[k] for k in ("1", "X", "2") if o.get(k)}
+        total = sum(inv.values())
+        for k, v in inv.items():
+            if o[k] > best.get(k, 0):
+                best[k], best_bm[k] = o[k], name
+            probs.setdefault(k, []).append(v / total * 100)
+    main["best"] = best
+    main["best_bookmaker"] = best_bm
+    main["probability"] = {k: round(sum(v) / len(v)) for k, v in probs.items()}
+    return main
+
+
+def odds_for_team(odds: dict[str, Any] | None, is_home: bool) -> dict[str, Any]:
+    """Odds seen from one team's perspective."""
+    odds = odds or {}
+    mine, theirs = ("1", "2") if is_home else ("2", "1")
+    return {
+        "team": odds.get(mine),
+        "draw": odds.get("X"),
+        "opponent": odds.get(theirs),
+        "team_initial": odds.get(f"{mine}_initial"),
+        "team_trend": odds.get(f"{mine}_trend"),
+        "team_best": (odds.get("best") or {}).get(mine),
+        "team_best_bookmaker": (odds.get("best_bookmaker") or {}).get(mine),
+        "probability": (odds.get("probability") or {}).get(mine),
+        "probability_draw": (odds.get("probability") or {}).get("X"),
+        "probability_opponent": (odds.get("probability") or {}).get(theirs),
+    }
+
+
+# --- Match detail -------------------------------------------------------------------
+STAT_CZ = {
+    "Ball possession": "Držení míče",
+    "Expected goals": "Očekávané góly (xG)",
+    "Total shots": "Střely",
+    "Shots on target": "Střely na branku",
+    "Shots off target": "Střely mimo",
+    "Blocked shots": "Zblokované střely",
+    "Corner kicks": "Rohy",
+    "Offsides": "Ofsajdy",
+    "Fouls": "Fauly",
+    "Yellow cards": "Žluté karty",
+    "Red cards": "Červené karty",
+    "Goalkeeper saves": "Zákroky brankáře",
+    "Passes": "Přihrávky",
+    "Accurate passes": "Přesné přihrávky",
+    "Big chances": "Velké šance",
+    "Free kicks": "Přímé kopy",
+    "Throw-ins": "Auty",
+    "Tackles": "Skluzy",
+    "Shots": "Střely",
+    "Saves": "Zákroky",
+    "Penalty minutes": "Trestné minuty",
+    "Power play goals": "Góly v přesilovce",
+    "Short-handed goals": "Góly v oslabení",
+    "Faceoffs won": "Vhazování",
+    "Hits": "Hity",
+    "Free throws": "Trestné hody",
+    "2 pointers": "Dvojky",
+    "3 pointers": "Trojky",
+    "Rebounds": "Doskoky",
+    "Assists": "Asistence",
+    "Turnovers": "Ztráty",
+    "Steals": "Zisky",
+    "Timeouts": "Oddechové časy",
+}
+
+
+def _player(p: dict[str, Any] | None) -> str | None:
+    if not p:
+        return None
+    return p.get("shortName") or p.get("name")
+
+
+def parse_incidents(raw: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    """Goals, cards and period markers, oldest first."""
+    out = []
+    for inc in raw or []:
+        kind = inc.get("incidentType")
+        cls = inc.get("incidentClass")
+        minute = inc.get("time")
+        added = inc.get("addedTime")
+        when = f"{minute}+{added}'" if minute is not None and added and added != 999 else (f"{minute}'" if minute is not None else "")
+        if kind == "goal":
+            out.append({
+                "id": inc.get("id"), "type": "goal", "minute": when, "time": minute,
+                "is_home": inc.get("isHome"), "player": _player(inc.get("player")),
+                "assist": _player(inc.get("assist1")),
+                "detail": {"penalty": "penalta", "ownGoal": "vlastní gól"}.get(cls),
+                "score": f"{inc.get('homeScore')}:{inc.get('awayScore')}",
+            })
+        elif kind == "card":
+            out.append({
+                "id": inc.get("id"), "type": "card", "minute": when, "time": minute,
+                "is_home": inc.get("isHome"), "player": _player(inc.get("player")) or inc.get("playerName"),
+                "card": {"yellow": "yellow", "red": "red", "yellowRed": "second_yellow"}.get(cls, cls),
+                "detail": inc.get("reason"),
+            })
+        elif kind == "period" and inc.get("text"):
+            out.append({"type": "period", "text": inc.get("text"), "time": minute,
+                        "score": f"{inc.get('homeScore')}:{inc.get('awayScore')}"})
+        elif kind == "varDecision":
+            out.append({"id": inc.get("id"), "type": "var", "minute": when, "time": minute,
+                        "is_home": inc.get("isHome"), "detail": cls})
+    out.sort(key=lambda i: (i.get("time") or 0))
+    return out
+
+
+def parse_statistics(payload: dict[str, Any] | None) -> list[dict[str, Any]]:
+    for period in (payload or {}).get("statistics") or []:
+        if period.get("period") != "ALL":
+            continue
+        items = []
+        for group in period.get("groups") or []:
+            for item in group.get("statisticsItems") or []:
+                name = item.get("name")
+                if any(i["key"] == name for i in items):
+                    continue
+                items.append({
+                    "key": name,
+                    "name": STAT_CZ.get(name, name),
+                    "home": item.get("home"),
+                    "away": item.get("away"),
+                    "home_value": item.get("homeValue"),
+                    "away_value": item.get("awayValue"),
+                })
+        return items
+    return []
+
+
+def parse_lineups(payload: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not payload or not payload.get("home"):
+        return None
+
+    def side(data: dict[str, Any]) -> dict[str, Any]:
+        players = data.get("players") or []
+        return {
+            "formation": data.get("formation"),
+            "starters": [
+                {"name": _player(p.get("player")), "number": p.get("shirtNumber") or p.get("jerseyNumber"), "position": p.get("position")}
+                for p in players if not p.get("substitute")
+            ],
+            "substitutes": [_player(p.get("player")) for p in players if p.get("substitute")],
+            "missing": [_player(m.get("player")) for m in data.get("missingPlayers") or []],
+        }
+
+    return {"confirmed": bool(payload.get("confirmed")), "home": side(payload["home"]), "away": side(payload.get("away") or {})}
+
+
+def parse_h2h(payload: dict[str, Any] | None) -> dict[str, Any] | None:
+    duel = (payload or {}).get("teamDuel")
+    if not duel:
+        return None
+    return {"home_wins": duel.get("homeWins", 0), "draws": duel.get("draws", 0), "away_wins": duel.get("awayWins", 0)}
+
+
+def parse_votes(payload: dict[str, Any] | None) -> dict[str, Any] | None:
+    vote = (payload or {}).get("vote")
+    if not vote:
+        return None
+    counts = {"1": vote.get("vote1") or 0, "X": vote.get("voteX") or 0, "2": vote.get("vote2") or 0}
+    total = sum(counts.values())
+    if not total:
+        return None
+    return {"total": total, **{k: round(v / total * 100) for k, v in counts.items()}}

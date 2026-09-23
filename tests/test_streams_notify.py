@@ -4,6 +4,7 @@ from custom_components.ha_sport.notify_logic import (
     diff_messages,
     in_quiet_hours,
     live_update_message,
+    odds_change_message,
     minutes_label,
     pre_match_message,
 )
@@ -71,3 +72,16 @@ def test_live_update_and_quiet():
     assert not in_quiet_hours(datetime(2026, 1, 1, 12, 0), "22:00:00", "07:00:00")
     assert in_quiet_hours(datetime(2026, 1, 1, 13, 0), "12:00", "14:00")
     assert not in_quiet_hours(datetime(2026, 1, 1, 13, 0), None, None)
+
+
+def test_odds_change_and_lineups():
+    old, new = ev(), ev()
+    new["odds"] = {"1": 1.8, "X": 3.4, "2": 3.2}
+    msg = odds_change_message(old, new, "1", 5)
+    assert msg and msg.kind == "odds_change" and "klesl" in msg.title and msg.extra["change_pct"] == -14.3
+    assert odds_change_message(old, new, "1", 20) is None
+    new_l = ev()
+    new_l["lineups"] = {"confirmed": True, "home": {"formation": "4-4-2", "starters": [{"name": "A"}]},
+                        "away": {"starters": [{"name": "B"}]}}
+    msgs = diff_messages(ev(), new_l)
+    assert [m.kind for m in msgs] == ["lineups"] and "4-4-2" in msgs[0].message

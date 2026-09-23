@@ -22,11 +22,16 @@ from .const import (
     CONF_FETCH_ODDS,
     CONF_FETCH_TV,
     CONF_LIVE_SCAN_INTERVAL,
+    CONF_ODDS_API_INTERVAL,
+    CONF_ODDS_API_KEY,
+    CONF_ODDS_BOOKMAKERS,
     CONF_SCAN_INTERVAL,
     CONF_SPORTS,
     DEFAULT_DAYS_AHEAD,
     DEFAULT_DAYS_BACK,
     DEFAULT_LIVE_SCAN_INTERVAL,
+    DEFAULT_ODDS_API_INTERVAL,
+    DEFAULT_ODDS_BOOKMAKERS,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     HEAVY_REFRESH_MINUTES,
@@ -43,6 +48,12 @@ from .const import (
 )
 from .models import (
     filter_events,
+    merge_bookmakers,
+    parse_h2h,
+    parse_incidents,
+    parse_lineups,
+    parse_statistics,
+    parse_votes,
     normalize_bracket,
     normalize_event,
     normalize_standings,
@@ -50,6 +61,7 @@ from .models import (
     parse_odds,
     team_form,
 )
+from .odds_api import OddsApiClient, bookmakers_from_event, match_event
 from .streams import streams_for_event
 
 _LOGGER = logging.getLogger(__name__)
@@ -57,6 +69,8 @@ _LOGGER = logging.getLogger(__name__)
 MAX_ODDS_PER_CYCLE = 40
 MAX_TV_PER_CYCLE = 25
 MAX_TEAM_DETAILS_PER_CYCLE = 20
+# enrichment kept when an event is re-read from a list endpoint
+KEEP_KEYS = ("odds", "tv", "streams", "incidents", "lineups", "h2h", "votes")
 
 
 def entry_option(entry: ConfigEntry, key: str, default: Any = None) -> Any:
@@ -96,6 +110,22 @@ class SportCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.sent_keys: dict[str, float] = {}
         self._store: Store = Store(hass, STORAGE_VERSION, f"{STORAGE_KEY}.{entry.entry_id}")
         self.logo_base = LOGO_URL
+        # odds from several places
+        self.providers: list[dict[str, Any]] = []
+        self._odds_sources: dict[int, list[tuple[str, dict[str, Any]]]] = {}
+        self._external_odds: dict[int, list[tuple[str, dict[str, Any]]]] = {}
+        self.odds_opening: dict[int, dict[str, float]] = {}
+        self._detail_fetched: dict[str, float] = {}
+        key = entry_option(entry, CONF_ODDS_API_KEY)
+        self.odds_api: OddsApiClient | None = (
+            OddsApiClient(
+                client._session,  # noqa: SLF001 - plain aiohttp session of HA
+                key.strip(),
+                float(entry_option(entry, CONF_ODDS_API_INTERVAL, DEFAULT_ODDS_API_INTERVAL)),
+            )
+            if key and key.strip()
+            else None
+        )
 
     # --- configuration helpers ---------------------------------------------
     def opt(self, key: str, default: Any = None) -> Any:
@@ -129,6 +159,7 @@ class SportCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.sent_keys = {k: v for k, v in data.get("sent", {}).items() if v > cutoff}
         for team in data.get("teams", []):
             self.teams[int(team["id"])] = team
+        self.odds_opening = {int(k): v for k, v in (data.get("odds_opening") or {}).items()}
 
     def async_schedule_save(self) -> None:
         self._store.async_delay_save(self._data_to_store, 10)
@@ -140,6 +171,7 @@ class SportCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "muted": sorted(self.muted),
             "sent": {k: v for k, v in self.sent_keys.items() if v > cutoff},
             "teams": list(self.teams.values()),
+            "odds_opening": {str(k): v for k, v in self.odds_opening.items() if k in self.events},
         }
 
     # --- update ---------------------------------------------------------------
@@ -199,6 +231,11 @@ class SportCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             elif ut_id in self.brackets:
                 self.brackets.pop(ut_id)
 
+        if not self.providers:
+            for country in self.countries:
+                for prov in await self.client.odds_providers(country):
+                    if prov["id"] != 1 and all(p["id"] != prov["id"] for p in self.providers):
+                        self.providers.append(prov)
         results = await asyncio.gather(
             *(one(ut_id, comp) for ut_id, comp in self.competitions.items()),
             return_exceptions=True,
@@ -215,9 +252,9 @@ class SportCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             old = self.events.get(ev["id"])
             if old:
                 # keep enrichment
-                ev["odds"] = ev["odds"] or old.get("odds")
-                ev["tv"] = ev["tv"] or old.get("tv", [])
-                ev["streams"] = old.get("streams", [])
+                for key in KEEP_KEYS:
+                    if not ev.get(key) and old.get(key):
+                        ev[key] = old[key]
                 ev["city"] = ev["city"] or old.get("city")
                 ev["venue"] = ev["venue"] or old.get("venue")
             if not ev.get("country"):
@@ -315,11 +352,15 @@ class SportCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         tasks = []
         if self.opt(CONF_FETCH_ODDS, True):
-            todo = [
-                e for e in upcoming
-                if now - self._odds_fetched.get(e["id"], 0) > ODDS_CACHE_MINUTES * 60
-                and e["status"] == STATUS_NOT_STARTED
-            ][:MAX_ODDS_PER_CYCLE]
+            def odds_due(e: dict[str, Any]) -> bool:
+                mine = self._is_favorite_event(e) or e["id"] in self.followed
+                if e["status"] == STATUS_LIVE:
+                    # live odds only for my matches, every 5 minutes
+                    return mine and now - self._odds_fetched.get(e["id"], 0) > 300
+                ttl = ODDS_CACHE_MINUTES if mine else ODDS_CACHE_MINUTES * 2
+                return now - self._odds_fetched.get(e["id"], 0) > ttl * 60
+
+            todo = [e for e in upcoming if odds_due(e)][:MAX_ODDS_PER_CYCLE]
             tasks.extend(self._fetch_odds(e) for e in todo)
         if self.opt(CONF_FETCH_TV, True):
             todo = [
@@ -335,8 +376,11 @@ class SportCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             and not (self.teams.get(tid) or {}).get("city_checked")
         ][:MAX_TEAM_DETAILS_PER_CYCLE]
         tasks.extend(self._fetch_team(tid) for tid in missing)
+        tasks.append(self._refresh_match_details(upcoming))
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
+        if self.opt(CONF_FETCH_ODDS, True) and self.odds_api:
+            await self._refresh_external_odds(upcoming)
         # always make sure there are some stream links
         for ev in self.events.values():
             if not ev.get("streams"):
@@ -346,12 +390,137 @@ class SportCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 ev["city"] = home.get("city")
                 ev["venue"] = ev.get("venue") or home.get("stadium")
 
-    async def _fetch_odds(self, ev: dict[str, Any]) -> None:
-        payload = await self.client.odds(ev["id"], ODDS_CACHE_MINUTES * 60)
-        self._odds_fetched[ev["id"]] = time.time()
-        odds = parse_odds(payload)
-        if odds and ev["id"] in self.events:
-            self.events[ev["id"]]["odds"] = odds
+    async def _fetch_odds(self, ev: dict[str, Any], full: bool | None = None) -> None:
+        """Odds from the default provider and (for my matches) more bookmakers."""
+        eid = ev["id"]
+        ttl = 60 if ev["status"] == STATUS_LIVE else ODDS_CACHE_MINUTES * 60
+        if full is None:
+            full = self._is_favorite_event(ev) or eid in self.followed
+        self._odds_fetched[eid] = time.time()
+        sources: list[tuple[str, dict[str, Any]]] = []
+        main = parse_odds(await self.client.odds(eid, ttl))
+        if main:
+            sources.append(("Sofascore", main))
+        # my matches: compare several bookmakers; others: only when the default has none
+        count = int(self.opt(CONF_ODDS_BOOKMAKERS, DEFAULT_ODDS_BOOKMAKERS)) if full else (0 if sources else 3)
+        for prov in self.providers[:count]:
+            parsed = parse_odds(await self.client.odds(eid, ttl, prov["id"]))
+            if parsed:
+                sources.append((prov["name"], parsed))
+            if not full and sources:
+                break
+        if sources:
+            self._odds_sources[eid] = sources
+        self._apply_odds(eid)
+
+    def _apply_odds(self, eid: int) -> None:
+        ev = self.events.get(eid)
+        if not ev:
+            return
+        merged = merge_bookmakers(self._odds_sources.get(eid, []) + self._external_odds.get(eid, []))
+        if not merged:
+            return
+        if ev["status"] == STATUS_NOT_STARTED:
+            opening = self.odds_opening.setdefault(eid, {k: merged[k] for k in ("1", "X", "2") if merged.get(k)})
+        else:
+            opening = self.odds_opening.get(eid, {})
+        merged["opening"] = opening
+        merged["change_pct"] = {
+            k: round((merged[k] - opening[k]) / opening[k] * 100, 1)
+            for k in ("1", "X", "2") if merged.get(k) and opening.get(k)
+        }
+        ev["odds"] = merged
+
+    async def _refresh_external_odds(self, upcoming: list[dict[str, Any]]) -> None:
+        """Second odds source (The Odds API) for upcoming matches."""
+        assert self.odds_api
+        by_sport: dict[str, list[dict[str, Any]]] = {}
+        for ev in upcoming:
+            if ev["status"] == STATUS_NOT_STARTED:
+                by_sport.setdefault(ev["sport"], []).append(ev)
+        for sport, events in by_sport.items():
+            candidates = await self.odds_api.odds_for(sport)
+            if not candidates:
+                continue
+            for ev in events:
+                found = match_event(ev, candidates)
+                if found:
+                    self._external_odds[ev["id"]] = bookmakers_from_event(found)[:8]
+                    self._apply_odds(ev["id"])
+
+    def _due(self, key: str, seconds: float) -> bool:
+        now = time.time()
+        if now - self._detail_fetched.get(key, 0) < seconds:
+            return False
+        self._detail_fetched[key] = now
+        return True
+
+    async def _refresh_match_details(self, upcoming: list[dict[str, Any]]) -> None:
+        """Livesport-like detail for my matches: scorers, cards, lineups, H2H, fan tips."""
+        now = time.time()
+        mine = [
+            e for e in self.events.values()
+            if self._is_favorite_event(e) or e["id"] in self.followed
+        ]
+        tasks = []
+        for ev in mine:
+            eid, ts = ev["id"], ev.get("timestamp") or 0
+            if ev["status"] == STATUS_LIVE:
+                tasks.append(self._load_incidents(ev))
+            elif ev["status"] == STATUS_FINISHED and now - ts < 5 * 3600 and self._due(f"{eid}:inc_final", 1800):
+                tasks.append(self._load_incidents(ev))
+            elif ev["status"] == STATUS_NOT_STARTED and ts:
+                if ts - now < 90 * 60 and not (ev.get("lineups") or {}).get("confirmed") and self._due(f"{eid}:lineups", 240):
+                    tasks.append(self._load_lineups(ev))
+                if ts - now < 7 * 86400 and self._due(f"{eid}:pre", 6 * 3600):
+                    tasks.append(self._load_prematch(ev))
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def _load_incidents(self, ev: dict[str, Any]) -> None:
+        incidents = parse_incidents(await self.client.incidents(ev["id"]))
+        if incidents and ev["id"] in self.events:
+            self.events[ev["id"]]["incidents"] = incidents
+
+    async def _load_lineups(self, ev: dict[str, Any]) -> None:
+        lineups = parse_lineups(await self.client.lineups(ev["id"]))
+        if lineups and ev["id"] in self.events:
+            self.events[ev["id"]]["lineups"] = lineups
+
+    async def _load_prematch(self, ev: dict[str, Any]) -> None:
+        h2h, votes = await asyncio.gather(self.client.h2h(ev["id"]), self.client.votes(ev["id"]))
+        if ev["id"] in self.events:
+            target = self.events[ev["id"]]
+            target["h2h"] = parse_h2h(h2h) or target.get("h2h")
+            target["votes"] = parse_votes(votes) or target.get("votes")
+
+    async def async_event_detail(self, event_id: int) -> dict[str, Any]:
+        """Everything about one match (used by the card detail and a service)."""
+        event_id = int(event_id)
+        ev = self.events.get(event_id)
+        if ev is None:
+            raw = await self.client.event(event_id)
+            if not raw:
+                return {}
+            self._ingest([raw], None)
+            ev = self.events[event_id]
+        started = ev["status"] in (STATUS_LIVE, STATUS_FINISHED)
+        incidents, stats, lineups, h2h, votes = await asyncio.gather(
+            self.client.incidents(event_id, ttl=30) if started else asyncio.sleep(0, result=[]),
+            self.client.statistics(event_id) if started else asyncio.sleep(0, result=None),
+            self.client.lineups(event_id),
+            self.client.h2h(event_id),
+            self.client.votes(event_id),
+        )
+        if ev["status"] == STATUS_NOT_STARTED and self.opt(CONF_FETCH_ODDS, True) and (
+            time.time() - self._odds_fetched.get(event_id, 0) > 600 or len(self._odds_sources.get(event_id, [])) < 2
+        ):
+            await self._fetch_odds(ev, full=True)
+        ev["incidents"] = parse_incidents(incidents) or ev.get("incidents") or []
+        ev["lineups"] = parse_lineups(lineups) or ev.get("lineups")
+        ev["h2h"] = parse_h2h(h2h) or ev.get("h2h")
+        ev["votes"] = parse_votes(votes) or ev.get("votes")
+        return {**ev, "statistics": parse_statistics(stats)}
 
     async def _fetch_tv(self, ev: dict[str, Any]) -> None:
         countries = list(dict.fromkeys(self.countries + ["CZ", "SK"]))
@@ -396,6 +565,9 @@ class SportCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if ts < now - back or ts > now + ahead:
                 self.events.pop(eid)
         self.followed = {e for e in self.followed if e in self.events}
+        for cache in (self._odds_sources, self._external_odds, self._odds_fetched, self.odds_opening):
+            for eid in [k for k in cache if k not in self.events]:
+                cache.pop(eid, None)
 
     def _adjust_interval(self) -> None:
         now = time.time()
@@ -527,5 +699,13 @@ class SportCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "favorites": list(self.favorites.values()),
             "updated": datetime.now(timezone.utc).isoformat(),
             "requests": self.client.request_count,
+            "odds_stats": {
+                "upcoming": sum(1 for e in events if e["status"] == STATUS_NOT_STARTED),
+                "with_odds": sum(1 for e in events if e["status"] == STATUS_NOT_STARTED and e.get("odds")),
+                "bookmakers": ["Sofascore"] + [p["name"] for p in self.providers],
+                "odds_api": bool(self.odds_api),
+                "odds_api_remaining": self.odds_api.remaining if self.odds_api else None,
+                "odds_api_error": self.odds_api.last_error if self.odds_api else None,
+            },
             "error": self.client.last_error,
         }

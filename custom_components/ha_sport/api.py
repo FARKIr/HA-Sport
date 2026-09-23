@@ -196,15 +196,47 @@ class SofascoreClient:
         data = await self.safe_get(f"/event/{event_id}")
         return (data or {}).get("event")
 
-    async def incidents(self, event_id: int) -> list[dict[str, Any]]:
-        data = await self.safe_get(f"/event/{event_id}/incidents")
+    async def incidents(self, event_id: int, ttl: float = 0) -> list[dict[str, Any]]:
+        data = await self.safe_get(f"/event/{event_id}/incidents", ttl=ttl)
         return (data or {}).get("incidents") or []
 
-    async def odds(self, event_id: int, ttl: float) -> dict[str, Any] | None:
-        data = await self.safe_get(f"/event/{event_id}/odds/1/featured", ttl=ttl)
+    async def odds(self, event_id: int, ttl: float, provider_id: int = 1) -> dict[str, Any] | None:
+        """Odds of one bookmaker (provider). 1 = Sofascore default provider."""
+        data = await self.safe_get(f"/event/{event_id}/odds/{provider_id}/featured", ttl=ttl)
         if not data or not data.get("featured"):
-            data = await self.safe_get(f"/event/{event_id}/odds/1/all", ttl=ttl)
+            data = await self.safe_get(f"/event/{event_id}/odds/{provider_id}/all", ttl=ttl)
         return data
+
+    async def odds_providers(self, country: str) -> list[dict[str, Any]]:
+        """Bookmakers Sofascore shows for a country: [{id, name}]."""
+        out: list[dict[str, Any]] = []
+        for path in (f"/odds/providers/{country}/web", f"/odds/providers/{country}"):
+            data = await self.safe_get(path, ttl=86400)
+            items = (data or {}).get("providers") or (data if isinstance(data, list) else [])
+            for item in items:
+                prov = item.get("provider", item) if isinstance(item, dict) else {}
+                pid = prov.get("id")
+                if pid and all(o["id"] != pid for o in out):
+                    out.append({"id": pid, "name": prov.get("name") or prov.get("slug") or f"#{pid}"})
+            if out:
+                break
+        return out
+
+    # --- Match detail (fetched on demand / for followed matches) -------------
+    async def statistics(self, event_id: int) -> dict[str, Any] | None:
+        return await self.safe_get(f"/event/{event_id}/statistics", ttl=60)
+
+    async def lineups(self, event_id: int) -> dict[str, Any] | None:
+        return await self.safe_get(f"/event/{event_id}/lineups", ttl=120)
+
+    async def h2h(self, event_id: int) -> dict[str, Any] | None:
+        return await self.safe_get(f"/event/{event_id}/h2h", ttl=6 * 3600)
+
+    async def votes(self, event_id: int) -> dict[str, Any] | None:
+        return await self.safe_get(f"/event/{event_id}/votes", ttl=1800)
+
+    async def pregame_form(self, event_id: int) -> dict[str, Any] | None:
+        return await self.safe_get(f"/event/{event_id}/pregame-form", ttl=6 * 3600)
 
     async def tv_channels(self, event_id: int, countries: list[str], ttl: float) -> list[str]:
         """Return TV channel names broadcasting the event in given countries."""

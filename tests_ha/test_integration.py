@@ -163,3 +163,71 @@ async def test_logo_proxy_registered(hass: HomeAssistant, hass_client, fake_api)
     # invalid kind -> 404 from our view (proves the route exists), card is no longer served
     assert (await client.get("/api/ha_sport/logo/foo/1")).status == 404
     assert (await client.get("/ha_sport_static/ha-sport-card.js")).status == 404
+
+
+async def test_odds_multiple_bookmakers_and_sensors(hass: HomeAssistant, hass_ws_client, fake_api) -> None:
+    entry = await _setup(hass)
+    coord = entry.runtime_data.coordinator
+    assert [p["name"] for p in coord.providers] == ["Tipsport", "Fortuna"]
+    # favorite match: default + Tipsport compared, best odd picked
+    odds = coord.events[101]["odds"]
+    assert [b["name"] for b in odds["bookmakers"]] == ["Sofascore", "Tipsport"]
+    assert odds["best"]["1"] == 2.1 and odds["best_bookmaker"]["1"] == "Tipsport"
+    # non favorite match without default odds falls back to the local bookmaker
+    assert coord.events[102]["odds"]["1"] == 1.5 and coord.events[102]["odds"]["source"] == "Tipsport"
+    # pre-match detail for favorites
+    assert coord.events[101]["h2h"]["home_wins"] == 4
+    assert coord.events[101]["votes"]["1"] == 60
+    assert "lineups" not in coord.events[101]  # lineups are polled only 90 min before kick-off
+
+    win_odds = next(s for s in hass.states.async_all("sensor") if s.attributes.get("best_bookmaker") == "Tipsport")
+    assert float(win_odds.state) == 2.0 and win_odds.attributes["best_odds"] == 2.1
+    prob = next(s for s in hass.states.async_all("sensor") if s.attributes.get("unit_of_measurement") == "%"
+                and s.attributes.get("event_id") == 101)
+    assert 40 <= int(prob.state) <= 60
+
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "ha_sport/event_detail", "event_id": 101})
+    msg = await client.receive_json()
+    assert msg["success"]
+    detail = msg["result"]
+    assert detail["lineups"]["home"]["formation"] == "3-4-3"
+    assert detail["h2h"]["draws"] == 3
+
+
+async def test_goal_scorer_red_card_and_odds_alert(hass: HomeAssistant, fake_api) -> None:
+    from homeassistant.core import callback  # noqa: F401
+
+    entry = await _setup(hass)
+    coord = entry.runtime_data.coordinator
+    events = async_capture_events(hass, EVENT_NOTIFICATION)
+    odds_events = async_capture_events(hass, "ha_sport_odds_change")
+
+    # odds on my team (home, Team 1) drop from 2.0 to 1.5 -> ha_sport_odds_change
+    fake_api.responses["/event/101/odds/1/featured"] = {"featured": {"default": {"choices": [
+        {"name": "1", "fractionalValue": "1/2"}, {"name": "X", "fractionalValue": "5/2"}, {"name": "2", "fractionalValue": "4/1"}]}}}
+    fake_api.responses.pop("/event/101/odds/55/featured")
+    coord._odds_fetched.clear()
+    coord._odds_sources.clear()
+    await coord.async_refresh()
+    await hass.async_block_till_done()
+    assert odds_events and odds_events[0].data["outcome"] == "1" and odds_events[0].data["new_odds"] == 1.5
+
+    # goes live, goal with scorer from incidents and a red card
+    fake_api.live = [event(101, 1, 2, NOW - 600, "inprogress", 0, 0, 6)]
+    coord.events[101]["timestamp"] = NOW - 600
+    coord.events[101]["incidents"] = []
+    fake_api.responses["/event/101/incidents"] = {"incidents": []}
+    await coord.async_refresh()
+    await hass.async_block_till_done()
+    fake_api.live = [event(101, 1, 2, NOW - 600, "inprogress", 1, 0, 6)]
+    fake_api.responses["/event/101/incidents"] = {"incidents": [
+        {"incidentType": "goal", "id": 5001, "time": 23, "isHome": True, "homeScore": 1, "awayScore": 0,
+         "player": {"shortName": "L. Haraslín"}},
+        {"incidentType": "card", "id": 5002, "incidentClass": "red", "time": 30, "isHome": False,
+         "player": {"shortName": "T. Holeš"}}]}
+    await coord.async_refresh()
+    await hass.async_block_till_done()
+    goal = [e.data for e in events if e.data["kind"] == "score"]
+    assert goal and "L. Haraslín" in goal[-1]["message"]
+    assert any(e.data["kind"] == "red_card" and "Holeš" in e.data["title"] for e in events)

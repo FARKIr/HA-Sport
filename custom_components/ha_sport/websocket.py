@@ -21,7 +21,7 @@ def _runtimes(hass: HomeAssistant):
 def async_register_websocket(hass: HomeAssistant) -> None:
     if hass.data[DOMAIN].get("ws_registered"):
         return
-    for handler in (ws_overview, ws_matches, ws_competition, ws_team, ws_follow, ws_search, ws_favorite):
+    for handler in (ws_overview, ws_matches, ws_competition, ws_team, ws_follow, ws_search, ws_favorite, ws_event_detail):
         websocket_api.async_register_command(hass, handler)
     hass.data[DOMAIN]["ws_registered"] = True
 
@@ -173,3 +173,14 @@ async def ws_favorite(hass: HomeAssistant, connection: websocket_api.ActiveConne
         blocking=True,
     )
     connection.send_result(msg["id"], {"favorite": msg["favorite"]})
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/event_detail", vol.Required("event_id"): vol.Coerce(int)})
+@websocket_api.async_response
+async def ws_event_detail(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtimes = _runtimes(hass)
+    if not runtimes:
+        connection.send_error(msg["id"], "not_loaded", "HA Sport není načten")
+        return
+    detail = await runtimes[0].coordinator.async_event_detail(msg["event_id"])
+    connection.send_result(msg["id"], detail)

@@ -5,7 +5,7 @@ from typing import Final
 
 DOMAIN: Final = "ha_sport"
 NAME: Final = "HA Sport CZ/SK"
-VERSION: Final = "1.1.0"
+VERSION: Final = "1.2.0"
 
 PLATFORMS: Final = ["sensor", "binary_sensor", "calendar", "switch", "button"]
 
@@ -56,6 +56,9 @@ CONF_DAYS_BACK: Final = "days_back"
 CONF_FETCH_ODDS: Final = "fetch_odds"
 CONF_FETCH_TV: Final = "fetch_tv"
 CONF_BASE_URL: Final = "base_url"
+CONF_ODDS_API_KEY: Final = "odds_api_key"
+CONF_ODDS_API_INTERVAL: Final = "odds_api_interval"
+CONF_ODDS_BOOKMAKERS: Final = "odds_bookmakers"
 
 CONF_NOTIFY_ENABLED: Final = "notify_enabled"
 CONF_NOTIFY_SCOPE: Final = "notify_scope"
@@ -67,6 +70,10 @@ CONF_NOTIFY_END: Final = "notify_end"
 CONF_NOTIFY_LIVE_INTERVAL: Final = "notify_live_interval"
 CONF_NOTIFY_TARGETS: Final = "notify_targets"
 CONF_NOTIFY_PERSISTENT: Final = "notify_persistent"
+CONF_NOTIFY_ODDS: Final = "notify_odds"
+CONF_ODDS_THRESHOLD: Final = "odds_threshold"
+CONF_NOTIFY_LINEUPS: Final = "notify_lineups"
+CONF_NOTIFY_CARDS: Final = "notify_cards"
 CONF_QUIET_START: Final = "quiet_start"
 CONF_QUIET_END: Final = "quiet_end"
 
@@ -80,6 +87,9 @@ DEFAULT_DAYS_AHEAD: Final = 14
 DEFAULT_DAYS_BACK: Final = 7
 DEFAULT_NOTIFY_BEFORE: Final = ["60", "15"]
 DEFAULT_NOTIFY_LIVE_INTERVAL: Final = 0  # minutes, 0 = off
+DEFAULT_ODDS_THRESHOLD: Final = 10  # % change of the odd on my team
+DEFAULT_ODDS_API_INTERVAL: Final = 6  # hours (The Odds API free quota)
+DEFAULT_ODDS_BOOKMAKERS: Final = 4  # extra bookmakers asked for favorite matches
 
 NOTIFY_BEFORE_CHOICES: Final = ["5", "10", "15", "30", "60", "120", "180", "1440"]
 
@@ -100,6 +110,7 @@ STATUS_CANCELED: Final = "canceled"
 
 EVENT_NOTIFICATION: Final = f"{DOMAIN}_notification"
 EVENT_MATCH_UPDATE: Final = f"{DOMAIN}_match_update"
+EVENT_ODDS_CHANGE: Final = f"{DOMAIN}_odds_change"
 SIGNAL_UPDATE: Final = f"{DOMAIN}_update"
 
 STORAGE_KEY: Final = f"{DOMAIN}.state"

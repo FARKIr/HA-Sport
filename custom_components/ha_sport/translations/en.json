@@ -52,14 +52,19 @@
           "notify_targets": "Notify services",
           "notify_persistent": "Also show as HA persistent notification",
           "quiet_start": "Quiet hours from",
-          "quiet_end": "Quiet hours until"
+          "quiet_end": "Quiet hours until",
+          "notify_cards": "Notify red cards",
+          "notify_lineups": "Notify confirmed lineups",
+          "notify_odds": "Notify odds movement on my team",
+          "odds_threshold": "Notify when the odd changes by"
         },
         "data_description": {
           "notify_before": "Select multiple, or type a custom number of minutes (e.g. 45).",
           "notify_live_interval": "0 = off. E.g. 15 sends the current score every 15 minutes.",
           "notify_targets": "E.g. notify.mobile_app_phone – the push contains a 'Watch' button linking to the stream.",
           "quiet_start": "No notifications are sent in this window (the ha_sport_notification event is still fired).",
-          "notify_score": "Basketball baskets are not notified individually – use live score updates."
+          "notify_score": "Basketball baskets are not notified individually – use live score updates.",
+          "odds_threshold": "E.g. 10 % = odd 2.00 dropped to 1.80. The ha_sport_odds_change event is always fired."
         }
       }
     },
@@ -125,14 +130,19 @@
           "notify_targets": "Notify services",
           "notify_persistent": "Also show as HA persistent notification",
           "quiet_start": "Quiet hours from",
-          "quiet_end": "Quiet hours until"
+          "quiet_end": "Quiet hours until",
+          "notify_cards": "Notify red cards",
+          "notify_lineups": "Notify confirmed lineups",
+          "notify_odds": "Notify odds movement on my team",
+          "odds_threshold": "Notify when the odd changes by"
         },
         "data_description": {
           "notify_before": "Select multiple, or type a custom number of minutes (e.g. 45).",
           "notify_live_interval": "0 = off. E.g. 15 sends the current score every 15 minutes.",
           "notify_targets": "E.g. notify.mobile_app_phone – the push contains a 'Watch' button linking to the stream.",
           "quiet_start": "No notifications are sent in this window (the ha_sport_notification event is still fired).",
-          "notify_score": "Basketball baskets are not notified individually – use live score updates."
+          "notify_score": "Basketball baskets are not notified individually – use live score updates.",
+          "odds_threshold": "E.g. 10 % = odd 2.00 dropped to 1.80. The ha_sport_odds_change event is always fired."
         }
       },
       "general": {
@@ -144,11 +154,16 @@
           "days_back": "Days back",
           "fetch_odds": "Fetch odds",
           "fetch_tv": "Fetch TV / streams",
-          "base_url": "API URL"
+          "base_url": "API URL",
+          "odds_bookmakers": "Bookmakers to compare (favorite matches)",
+          "odds_api_key": "The Odds API key (optional)",
+          "odds_api_interval": "The Odds API refresh"
         },
         "data_description": {
           "live_scan_interval": "Fast polling starts automatically 20 minutes before tracked matches.",
-          "base_url": "Usually keep the default. Fallback addresses are tried automatically on errors."
+          "base_url": "Usually keep the default. Fallback addresses are tried automatically on errors.",
+          "odds_api_key": "Second odds source. Free key after registering on The Odds API website (500 requests/month). Empty = disabled.",
+          "odds_bookmakers": "How many extra bookmakers to query for favorite matches; the best odd is picked."
         }
       }
     },
@@ -183,6 +198,12 @@
       },
       "status": {
         "name": "Last update"
+      },
+      "win_odds": {
+        "name": "Win odds"
+      },
+      "win_probability": {
+        "name": "Win probability"
       }
     },
     "binary_sensor": {
@@ -363,6 +384,16 @@
         "team_id": {
           "name": "Team ID",
           "description": "Team ID (Sofascore)."
+        }
+      }
+    },
+    "get_event": {
+      "name": "Match detail",
+      "description": "Scorers, cards, statistics, lineups, head-to-head, fans' tip and odds of all bookmakers.",
+      "fields": {
+        "event_id": {
+          "name": "Match ID",
+          "description": "Match ID (event_id / id attribute)."
         }
       }
     }

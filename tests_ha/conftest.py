@@ -60,6 +60,26 @@ class FakeApi:
             "/team/1/events/last/0": {"events": [event(90, 2, 1, NOW - 3 * 86400, "finished", 0, 2, 100, 2)]},
             "/event/101/odds/1/featured": {"featured": {"default": {"marketName": "Full time", "choices": [
                 {"name": "1", "fractionalValue": "1/1"}, {"name": "X", "fractionalValue": "5/2"}, {"name": "2", "fractionalValue": "3/1"}]}}},
+            # Czech case: default provider has no odds for 102, a local bookmaker has
+            "/odds/providers/CZ/web": {"providers": [{"provider": {"id": 55, "name": "Tipsport"}},
+                                                     {"provider": {"id": 66, "name": "Fortuna"}}]},
+            "/event/101/odds/55/featured": {"featured": {"default": {"marketName": "Full time", "choices": [
+                {"name": "1", "fractionalValue": "11/10"}, {"name": "X", "fractionalValue": "12/5"}, {"name": "2", "fractionalValue": "5/2"}]}}},
+            "/event/102/odds/55/featured": {"featured": {"default": {"marketName": "Full time", "choices": [
+                {"name": "1", "fractionalValue": "1/2"}, {"name": "X", "fractionalValue": "3/1"}, {"name": "2", "fractionalValue": "5/1"}]}}},
+            "/event/101/h2h": {"teamDuel": {"homeWins": 4, "awayWins": 2, "draws": 3}},
+            "/event/101/votes": {"vote": {"vote1": 600, "voteX": 100, "vote2": 300}},
+            "/event/101/incidents": {"incidents": [
+                {"incidentType": "goal", "id": 5001, "time": 23, "isHome": True, "homeScore": 1, "awayScore": 0,
+                 "player": {"name": "Lukáš Haraslín", "shortName": "L. Haraslín"}, "assist1": {"shortName": "V. Birmančević"}},
+                {"incidentType": "card", "id": 5002, "incidentClass": "red", "time": 30, "isHome": False,
+                 "player": {"shortName": "T. Holeš"}},
+            ]},
+            "/event/101/statistics": {"statistics": [{"period": "ALL", "groups": [{"groupName": "Overview", "statisticsItems": [
+                {"name": "Ball possession", "home": "58%", "away": "42%", "homeValue": 58, "awayValue": 42}]}]}]},
+            "/event/101/lineups": {"confirmed": True, "home": {"formation": "3-4-3", "players": [
+                {"player": {"shortName": "P. Vindahl"}, "shirtNumber": 1, "position": "G", "substitute": False}]},
+                "away": {"formation": "3-5-2", "players": [{"player": {"shortName": "J. Staněk"}, "substitute": False}]}},
             "/tv/event/101/country-channels": {"countryChannels": {"CZ": [55]}},
             "/tv/channel/55/schedule": {"channel": {"id": 55, "name": "Oneplay Sport 1"}},
             "/team/1": {"team": {"id": 1, "name": "Team 1", "sport": {"slug": "football"},
