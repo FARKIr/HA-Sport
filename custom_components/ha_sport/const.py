@@ -5,7 +5,7 @@ from typing import Final
 
 DOMAIN: Final = "ha_sport"
 NAME: Final = "HA Sport CZ/SK"
-VERSION: Final = "1.3.0"
+VERSION: Final = "1.3.1"
 
 PLATFORMS: Final = ["sensor", "binary_sensor", "calendar", "switch", "button"]
 

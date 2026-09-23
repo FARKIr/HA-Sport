@@ -51,9 +51,11 @@ Všechno jde později změnit přes **Konfigurovat** (soutěže, soutěže SZĽH
 
 Soutěže, které Sofascore nemá, například dětské ligy (Liga mladších žiakov 6. ročník / HP6), krajské a regionální soutěže:
 
-1. *Konfigurovat → Soutěže SZĽH (mládež, nižší ligy)*
-2. Napište část názvu (např. `6. ročník`, `mladší žiaci`, `Východ`) nebo nechte prázdné pro celý seznam.
-3. Zaškrtněte soutěže a uložte.
+1. *Konfigurovat → Soutěže* (nebo přímo při prvním nastavení). Při zvoleném hokeji a Slovensku jsou soutěže SZĽH
+   přímo v seznamu jako **„🏒 SZĽH · …“** – do pole *Hledat* napište např. `6. ročník` nebo `mladší žiaci`.
+   Pod popisem kroku je řádek se stavem načtení (počet soutěží SZĽH nebo chyba).
+2. Alternativně *Konfigurovat → Soutěže SZĽH (mládež, nižší ligy)* – samostatné hledání jen v soutěžích SZĽH.
+3. Vyberte soutěže a uložte.
 4. V *Konfigurovat → Oblíbené týmy* pak najdete i týmy těchto soutěží (např. HKM Zvolen) a přidáte je mezi oblíbené.
 
 Soutěž se chová jako ostatní: senzor soutěže, tabulka (včetně sloupce **B/Z** – body na zápas), program a výsledky

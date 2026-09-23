@@ -307,3 +307,30 @@ async def test_szlh_competition_youth_league(hass: HomeAssistant, hass_ws_client
         assert msg["result"]["standings"][0]["rows"][0]["points_per_game"] == 6.0
         # sensors of the youth team exist
         assert any(s.attributes.get("team_id") == zvolen for s in hass.states.async_all("sensor"))
+
+
+async def test_szlh_in_competitions_list(hass: HomeAssistant, fake_api) -> None:
+    """SZĽH youth leagues appear directly in the competitions select (setup + options)."""
+    fake_api.responses["/sport/ice-hockey/categories"] = {"categories": [{"id": 21, "name": "Slovakia", "alpha2": "SK"}]}
+    fake_api.responses["/category/21/unique-tournaments"] = {"groups": [{"uniqueTournaments": [{"id": 900, "name": "Tipsport Liga"}]}]}
+
+    async def fake_get(self, path):
+        return SZLH_PAGES.get(path)
+
+    with patch("custom_components.ha_sport.szlh.SzlhClient._get", new=fake_get):
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"sports": ["ice-hockey"], "countries": ["SK"], "base_url": "https://www.sofascore.com/api/v1"}
+        )
+        assert result["step_id"] == "competitions"
+        opts = result["data_schema"].schema["competitions"].config["options"]
+        labels = [o["label"] for o in opts]
+        assert any("SZĽH · Liga mladších žiakov 6.ročník" in label for label in labels)
+        value = next(o["value"] for o in opts if "6.ročník" in o["label"] and "1. liga" not in o["label"])
+        # SZĽH is not pre-selected
+        marker = next(k for k in result["data_schema"].schema if k == "competitions")
+        assert value not in marker.default()
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {"competitions": [value]})
+        assert result["step_id"] == "favorites"
+        fav_labels = [o["label"] for o in result["data_schema"].schema["favorite_teams"].config["options"]]
+        assert any("HKM Zvolen" in label for label in fav_labels)

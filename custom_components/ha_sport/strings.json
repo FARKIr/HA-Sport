@@ -15,7 +15,7 @@
       },
       "competitions": {
         "title": "Competitions",
-        "description": "Select Sofascore competitions (leagues, cups, play-offs). Already selected ones are hidden in the dropdown. SZĽH youth and lower leagues (e.g. 6th grade) are added in Configure → SZĽH competitions.",
+        "description": "Select competitions (leagues, cups, play-offs). Already selected ones are hidden in the dropdown. Slovak federation (SZĽH) youth and lower leagues are listed as \"🏒 SZĽH · …\" – search e.g. \"6. ročník\".\n\n{szlh}",
         "data": {
           "competitions": "Competitions"
         }
@@ -94,7 +94,7 @@
       },
       "competitions": {
         "title": "Competitions",
-        "description": "Select Sofascore competitions (leagues, cups, play-offs). Already selected ones are hidden in the dropdown. SZĽH youth and lower leagues (e.g. 6th grade) are added in Configure → SZĽH competitions.",
+        "description": "Select competitions (leagues, cups, play-offs). Already selected ones are hidden in the dropdown. Slovak federation (SZĽH) youth and lower leagues are listed as \"🏒 SZĽH · …\" – search e.g. \"6. ročník\".\n\n{szlh}",
         "data": {
           "competitions": "Competitions"
         }

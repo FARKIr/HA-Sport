@@ -15,7 +15,7 @@
       },
       "competitions": {
         "title": "Soutěže",
-        "description": "Vyberte soutěže ze Sofascore (ligy, poháry, play-off). Vybrané soutěže se v rozbalovacím seznamu skryjí. Mládežnické a nižší soutěže SZĽH (např. Liga mladších žiakov 6. ročník) přidáte v Konfigurovat → Soutěže SZĽH.",
+        "description": "Vyberte soutěže (ligy, poháry, play-off). Vybrané soutěže se v rozbalovacím seznamu skryjí. Mládežnické a nižší soutěže Slovenského zväzu ľadového hokeja najdete v seznamu jako „🏒 SZĽH · …“ – do hledání napište např. „6. ročník“.\n\n{szlh}",
         "data": {
           "competitions": "Soutěže"
         }
@@ -94,7 +94,7 @@
       },
       "competitions": {
         "title": "Soutěže",
-        "description": "Vyberte soutěže ze Sofascore (ligy, poháry, play-off). Vybrané soutěže se v rozbalovacím seznamu skryjí. Mládežnické a nižší soutěže SZĽH (např. Liga mladších žiakov 6. ročník) přidáte v Konfigurovat → Soutěže SZĽH.",
+        "description": "Vyberte soutěže (ligy, poháry, play-off). Vybrané soutěže se v rozbalovacím seznamu skryjí. Mládežnické a nižší soutěže Slovenského zväzu ľadového hokeja najdete v seznamu jako „🏒 SZĽH · …“ – do hledání napište např. „6. ročník“.\n\n{szlh}",
         "data": {
           "competitions": "Soutěže"
         }

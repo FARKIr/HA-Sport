@@ -155,22 +155,62 @@ def competition_options(comps: list[dict[str, Any]]) -> list[tuple[str, str]]:
 def recommended_values(options: list[tuple[str, str]]) -> list[str]:
     out = []
     for value, _ in options:
+        if value.startswith(f"{SZLH}|"):
+            continue  # SZĽH competitions are opt-in
         name = normalize(value.split("|", 3)[3])
         if any(normalize(r) == name or normalize(r) in name for r in RECOMMENDED) and not any(d in name for d in DEPRIORITIZED):
             out.append(value)
     return out
 
 
+def szlh_value(tid: int, slug: str, name: str) -> str:
+    return f"{SZLH}|{tid}|{slug}|{name}"
+
+
+def szlh_competition(tid: int, slug: str, name: str) -> dict[str, Any]:
+    return {
+        "id": f"szlh-{tid}", "szlh_id": int(tid), "slug": slug, "name": name,
+        "sport": "ice-hockey", "country": "SK", "source": SZLH,
+        "url": f"{SZLH_BASE}/sk/stats/results/{tid}/{slug}".rstrip("/"),
+    }
+
+
+async def szlh_options(hass: HomeAssistant) -> tuple[list[tuple[str, str]], str]:
+    """SZĽH (HockeySlovakia.sk) competitions for the competitions select + status line."""
+    client = SzlhClient(async_get_clientsession(hass))
+    try:
+        items = await client.tournaments()
+    except Exception as exc:  # noqa: BLE001 - optional source, never break the flow
+        _LOGGER.warning("HockeySlovakia.sk nedostupné: %s", exc)
+        return [], f"SZĽH (HockeySlovakia.sk): ❌ {exc}"
+    if not items:
+        _LOGGER.warning("HockeySlovakia.sk: seznam soutěží je prázdný (%s)", client.last_error)
+        return [], f"SZĽH (HockeySlovakia.sk): ❌ {client.last_error or '0'}"
+    return [
+        (szlh_value(t["id"], t["slug"], t["name"]),
+         f"🏒 SZĽH · {t['name']}" + (f" ({t['group']})" if t.get("group") else ""))
+        for t in items
+    ], f"SZĽH (HockeySlovakia.sk): ✅ {len(items)} – 🏒 SZĽH · …"
+
+
 def parse_competitions(values: list[str]) -> list[dict[str, Any]]:
     out = []
     for v in values:
+        if v.startswith(f"{SZLH}|"):
+            _, tid, slug, name = v.split("|", 3)
+            out.append(szlh_competition(int(tid), slug, name))
+            continue
         sport, country, cid, name = v.split("|", 3)
         out.append({"id": int(cid), "sport": sport, "country": country, "name": name})
     return out
 
 
 def competition_values(comps: list[dict[str, Any]]) -> list[str]:
-    return [f"{c['sport']}|{c['country']}|{c['id']}|{c['name']}" for c in comps]
+    return [
+        szlh_value(c["szlh_id"], c.get("slug", ""), c["name"]) if c.get("source") == SZLH
+        else f"{c['sport']}|{c['country']}|{c['id']}|{c['name']}"
+        for c in comps
+    ]
 
 
 async def teams_of_competitions(
@@ -329,6 +369,9 @@ class SportConfigFlow(ConfigFlow, domain=DOMAIN):
                         errors["base"] = "no_competitions"
                     else:
                         self._comp_options = competition_options(comps)
+                        if "ice-hockey" in user_input[CONF_SPORTS] and "SK" in user_input[CONF_COUNTRIES]:
+                            extra, self._szlh_status = await szlh_options(self.hass)
+                            self._comp_options += extra
                         return await self.async_step_competitions()
         schema = vol.Schema(
             {
@@ -352,7 +395,9 @@ class SportConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors[CONF_COMPETITIONS] = "no_competition"
             else:
                 self.data[CONF_COMPETITIONS] = parse_competitions(user_input[CONF_COMPETITIONS])
-                self._teams = await teams_of_competitions(self._client(), self.data[CONF_COMPETITIONS])
+                self._teams = await teams_of_competitions(
+                    self._client(), self.data[CONF_COMPETITIONS], SzlhClient(async_get_clientsession(self.hass))
+                )
                 return await self.async_step_favorites()
         schema = vol.Schema(
             {
@@ -361,7 +406,10 @@ class SportConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
             }
         )
-        return self.async_show_form(step_id="competitions", data_schema=schema, errors=errors)
+        return self.async_show_form(
+            step_id="competitions", data_schema=schema, errors=errors,
+            description_placeholders={"szlh": getattr(self, "_szlh_status", "")},
+        )
 
     async def async_step_favorites(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
@@ -455,6 +503,9 @@ class SportOptionsFlow(OptionsFlow):
             try:
                 comps = await discover_competitions(self._client(), sports, countries)
                 self._comp_options = competition_options(comps)
+                if "ice-hockey" in sports and "SK" in countries:
+                    extra, self._szlh_status = await szlh_options(self.hass)
+                    self._comp_options += extra
             except SportApiError as exc:
                 errors["base"] = "cannot_connect"
                 placeholders["error"] = str(exc)
@@ -466,7 +517,8 @@ class SportOptionsFlow(OptionsFlow):
             {vol.Required(CONF_COMPETITIONS, default=current): _sel(options, mode=SelectSelectorMode.DROPDOWN)}
         )
         return self.async_show_form(
-            step_id="competitions", data_schema=schema, errors=errors, description_placeholders=placeholders
+            step_id="competitions", data_schema=schema, errors=errors,
+            description_placeholders={**placeholders, "szlh": getattr(self, "_szlh_status", "")},
         )
 
     async def async_step_favorites(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
@@ -545,11 +597,7 @@ class SportOptionsFlow(OptionsFlow):
                 if prev:
                     new.append(prev)
                 elif t:
-                    new.append({
-                        "id": f"szlh-{tid}", "szlh_id": tid, "slug": t["slug"], "name": t["name"],
-                        "sport": "ice-hockey", "country": "SK", "source": SZLH,
-                        "url": f"{SZLH_BASE}/sk/stats/results/{tid}/{t['slug']}".rstrip("/"),
-                    })
+                    new.append(szlh_competition(tid, t["slug"], t["name"]))
             others = [c for c in self._get(CONF_COMPETITIONS, []) if c.get("source") != SZLH]
             return self._save({CONF_COMPETITIONS: others + new})
         query = getattr(self, "_szlh_query", "")
