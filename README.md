@@ -2,8 +2,10 @@
 
 Integrace pro Home Assistant na **fotbal, hokej a basketbal v Česku a na Slovensku**.
 Ukazuje nadcházející zápasy, živé skóre, výsledky, tabulky, **pavouky play-off**, **kurzy**
-a **kde se dá zápas sledovat** (TV / stream). Oblíbeným týmům posílá oznámení: připomenutí
-před začátkem, góly, průběžné stavy a konečný výsledek.
+a **kde se dá zápas sledovat** (TV / stream). Kurzy porovnává z více sázkových kanceláří a dává je
+i jako senzory pro automatizace. Po kliknutí na zápas ukáže detail jako na Livesportu (střelci, karty,
+statistiky, sestavy, vzájemné zápasy). Oblíbeným týmům posílá oznámení: připomenutí před začátkem,
+góly se jménem střelce, červené karty, sestavy, pohyb kurzu, průběžné stavy a konečný výsledek.
 
 ![Náhled karet](docs/preview.png)
 
@@ -23,7 +25,7 @@ před začátkem, góly, průběžné stavy a konečný výsledek.
 | **Kalendáře** | `calendar.*_zapasy` a `calendar.*_zapasy_oblibenych` – fungují v kalendáři HA i v automatizacích |
 | **Karty** | Zápasy s filtrem, můj tým, chytrá karta, pavouk, tabulka – s vizuálním editorem (samostatný soubor `card/ha-sport-card.js`, instaluje se zvlášť) |
 | **Detail zápasu** | Jako na Livesportu: průběh (góly se střelci a asistencemi, karty, VAR), statistiky (držení míče, střely, xG…), sestavy s rozestavením a chybějícími hráči, vzájemné zápasy, tip fanoušků |
-| **Automatizace** | Události `ha_sport_notification` a `ha_sport_match_update`, služby vracející data (`get_matches`, `get_team`, `search_team`) |
+| **Automatizace** | Senzory kurzu a pravděpodobnosti výhry, události `ha_sport_notification`, `ha_sport_match_update` a `ha_sport_odds_change`, služby vracející data (`get_matches`, `get_team`, `get_event`, `search_team`) |
 
 ## Instalace
 
@@ -121,7 +123,7 @@ short_names: true
 | Entita | Popis |
 |---|---|
 | `sensor.<soutez>` | Čas příštího zápasu soutěže. Atributy: `upcoming`, `results`, `live`, `standings`, `leader`, `has_bracket`, `competition_id` |
-| `sensor.<tym>_pristi_zapas` | Čas příštího / probíhajícího zápasu. Atributy: `opponent`, `home_away`, `odds_team`, `odds_draw`, `odds_opponent`, `win_probability`, `tv`, `stream_url`, `score`, `minute`, `starts_in_minutes`, `this_week`, `form` |
+| `sensor.<tym>_pristi_zapas` | Čas příštího / probíhajícího zápasu. Atributy: `opponent`, `home_away`, `odds_team`, `odds_draw`, `odds_opponent`, `win_probability`, `tv`, `stream_url`, `score`, `minute`, `starts_in_minutes`, `this_week`, `form`, `odds_best_team`, `odds_best_bookmaker`, `bookmakers`, `h2h`, `fans_vote`, `lineups_confirmed`, `goals` |
 | `sensor.<tym>_posledni_vysledek` | např. `Sparta 2:1 Slavia`, atribut `result` (výhra/remíza/prohra), `form` |
 | `sensor.<tym>_pozice_v_tabulce` | pozice, body, skóre |
 | `sensor.<tym>_kurz_na_vyhru` | **kurz na výhru** vašeho týmu v příštím zápase (číslo, s historií). Atributy: `odds_draw`, `odds_opponent`, `best_odds`, `best_bookmaker`, `opening`, `change_pct`, `trend`, `is_favorite`, `bookmakers`, `match`, `start` |
@@ -142,6 +144,10 @@ Nastavení → HA Sport → Konfigurovat → **Oznámení**:
   Jednotlivý zápas zapnete **zvonkem 🔔** v kartě nebo službou `ha_sport.follow_match`.
 * **Upozornit před začátkem**: libovolná kombinace (5 min … 1 den), lze zadat i vlastní počet minut.
 * **Začátek, góly, přestávky, konec**: každé zvlášť. U basketbalu se jednotlivé koše neoznamují.
+* **Góly** obsahují jméno střelce a asistenci (u oblíbených a sledovaných zápasů).
+* **Červené karty** (i druhá žlutá) – lze vypnout.
+* **Zveřejněné sestavy** – zhruba hodinu před zápasem přijde rozestavení a základní sestava obou týmů.
+* **Pohyb kurzu na můj tým** – oznámení, když se kurz změní o nastavené % (výchozí 10 %).
 * **Průběžný stav každých N minut**: 0 = vypnuto, jinak třeba každých 15 minut aktuální skóre.
 * **Kam**: libovolné `notify.*` služby (mobilní aplikace dostane tlačítka *📺 Sledovat* a *Detail zápasu*, oznámení se stejným zápasem se nahrazují), nebo oznámení přímo v HA.
 * **Tichý režim**: v nastaveném čase se nic neposílá.
@@ -195,6 +201,7 @@ Další události: `ha_sport_match_update` (změna skóre nebo stavu) a `ha_spor
 když se kurz na oblíbený tým pohne o nastavené procento; data jsou `outcome`, `old_odds`, `new_odds` a `change_pct`.
 
 ```yaml
+automation:
   - alias: "Kurz na Spartu je pod 1.80 – připomenout tiket"
     trigger:
       - platform: numeric_state
@@ -219,7 +226,6 @@ když se kurz na oblíbený tým pohne o nastavené procento; data jsou `outcome
         data:
           message: "{{ trigger.event.data.home }} – {{ trigger.event.data.away }}: {{ trigger.event.data.old_odds }} → {{ trigger.event.data.new_odds }} ({{ trigger.event.data.change_pct }} %)"
 ```
-Každá změna skóre nebo stavu sledovaného zápasu vyvolá také `ha_sport_match_update`.
 
 ## Služby
 
@@ -245,8 +251,9 @@ data:
 ## Zdroj dat a upozornění
 
 Data pochází z veřejného JSON API webu [Sofascore](https://www.sofascore.com) (neoficiální, bez API klíče).
-Integrace požadavky omezuje: data ukládá do mezipaměti, kurzy stahuje jednou za 30 minut, tabulky a pavouky
-jednou za hodinu a rychlé obnovování zapíná jen během zápasů. Pokud je API dočasně nedostupné, zkouší se záložní adresy
+Integrace požadavky omezuje: data ukládá do mezipaměti, kurzy stahuje jednou za 30 minut (oblíbené zápasy)
+až 60 minut (ostatní), tabulky a pavouky jednou za hodinu, sestavy jen 90 minut před zápasem a rychlé obnovování
+zapíná jen během zápasů. Volitelný druhý zdroj kurzů je [The Odds API](https://the-odds-api.com/) (vlastní API klíč). Pokud je API dočasně nedostupné, zkouší se záložní adresy
 a zobrazí se poslední známá data. Adresu API lze změnit v nastavení.
 
 Odkazy na streamy vedou na oficiální platformy držitelů vysílacích práv. Kurzy jsou jen informativní.
@@ -272,11 +279,20 @@ Informace o vysílacích právech v sezóně 2025/26–2026/27 (použité pro od
   balíček nenainstaloval. Je k dispozici pro x86_64 a ARM64 (Raspberry Pi 4/5 s 64bitovým systémem).
 * `ClientConnectorError` / `Timeout` – HA se nedostane na internet, případně DNS nebo firewall.
 
+**Chybí kurzy** – podívejte se na atribut `odds` senzoru **Poslední aktualizace**:
+
+* `with_odds` / `upcoming` – u kolika nadcházejících zápasů kurz je,
+* `bookmakers` – které sázkové kanceláře se našly (pokud je jen `Sofascore`, zkuste zvýšit
+  *Konfigurovat → Obecné → Počet sázkových kanceláří* nebo doplnit klíč The Odds API),
+* `odds_api_error` / `odds_api_remaining` – chyba a zbývající dotazy The Odds API.
+
+Sázkovky většinou vypisují kurzy až několik dní před zápasem, u vzdálenějších zápasů proto kurz chybět může.
+
 ## Vývoj
 
 ```bash
 pip install -r requirements_test.txt
 pytest tests tests_ha
 ```
-`tests/` testují čistou logiku bez HA, `tests_ha/` celou integraci (config flow, entity, WebSocket, služby, oznámení)
-s mockovaným API.
+`tests/` testují čistou logiku bez HA, `tests_ha/` celou integraci (config flow, entity, WebSocket, služby,
+oznámení, kurzy z více zdrojů, detail zápasu) s mockovaným API.
