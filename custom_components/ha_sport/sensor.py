@@ -331,6 +331,9 @@ class StatusSensor(SportEntity, SensorEntity):
             "competitions": len(data.get("competitions", {})),
             "requests": data.get("requests"),
             "last_error": data.get("error"),
+            # name -> id, handy for YAML card config (competition_id / team_id)
+            "competition_ids": {c.get("name"): c.get("id") for c in data.get("competitions", {}).values()},
+            "team_ids": {t.get("name"): t.get("id") for t in data.get("favorites", [])},
             "update_interval_s": self.coordinator.update_interval.total_seconds()
             if self.coordinator.update_interval
             else None,

@@ -50,7 +50,7 @@ Kartu přidáte ručně:
 1. Stáhněte [`card/ha-sport-card.js`](card/ha-sport-card.js) a uložte ho do `/config/www/ha-sport-card.js`
    (složku `www` případně vytvořte; po jejím prvním vytvoření restartujte HA).
 2. *Nastavení → Nástěnky → ⋮ → Zdroje → Přidat zdroj*
-   * URL: `/local/ha-sport-card.js?v=1.1.0`
+   * URL: `/local/ha-sport-card.js?v=1.1.1`
    * Typ: **JavaScript modul**
 3. Obnovte prohlížeč (Ctrl+F5, v mobilní aplikaci *Nastavení → Aplikace → Obnovit frontend*).
 
@@ -61,13 +61,18 @@ Karta potřebuje nainstalovanou a nastavenou integraci (bere z ní data).
 
 Po přidání zdroje najdete karty v nabídce „Přidat kartu“ (hledejte „HA Sport“), všechny mají vizuální editor.
 
+Soutěž a tým stačí zadat **názvem** (`competition: Chance Liga`, `team: Sparta`, stačí i část názvu, na diakritice nezáleží).
+Číselná ID (`competition_id`, `team_id`) jsou volitelná – najdete je v atributech `competition_ids` a `team_ids`
+senzoru **Poslední aktualizace** (*Nastavení → Zařízení a služby → HA Sport CZ/SK → zařízení → Diagnostika*).
+Když karta soutěž nebo tým nenajde, vypíše seznam dostupných názvů i s ID.
+
 ### Zápasy s filtrem
 ```yaml
 type: custom:ha-sport-card
 mode: matches          # nadcházející / živě / výsledky + hledání + filtr podle sportu
 title: Zápasy CZ/SK
 # sport: ice-hockey     # jen jeden sport
-# competition_id: 172   # jen jedna soutěž (ID je v atributu senzoru soutěže)
+# competition: Chance Liga   # jen jedna soutěž – stačí název (nebo competition_id: 172)
 # city: Brno            # pevný filtr podle města
 # favorites_only: true
 # days: 14
@@ -76,7 +81,7 @@ title: Zápasy CZ/SK
 ### Můj tým – příští zápas s kurzem
 ```yaml
 type: custom:ha-sport-team-card
-# team_id: 2714   # bez team_id zobrazí všechny oblíbené týmy
+# team: Sparta   # název oblíbeného týmu (nebo team_id); bez něj zobrazí všechny oblíbené
 days: 7
 ```
 Ukazuje loga, datum a odpočet, kurzy 1/X/2 se zvýrazněním vašeho týmu a pravděpodobností,
@@ -86,7 +91,7 @@ Během zápasu zobrazuje živé skóre a minutu.
 ### Chytrá karta (kurz na můj tým, nebo pavouk)
 ```yaml
 type: custom:ha-sport-smart-card
-competition_id: 261   # soutěž, jejíž pavouk/tabulka se ukáže, když oblíbené týmy tento týden nehrají
+competition: Tipsport extraliga   # soutěž, jejíž pavouk/tabulka se ukáže, když oblíbené týmy tento týden nehrají
 days: 7
 ```
 Když některý oblíbený tým hraje v příštích `days` dnech, ukáže zápas s kurzem. Jinak ukáže
@@ -95,13 +100,13 @@ pavouka vybrané soutěže (nebo tabulku, pokud soutěž pavouka nemá).
 ### Pavouk
 ```yaml
 type: custom:ha-sport-bracket-card
-competition_id: 261
+competition: Tipsport extraliga
 ```
 
 ### Tabulka
 ```yaml
 type: custom:ha-sport-standings-card
-competition_id: 172
+competition: Chance Liga
 max_rows: 10
 short_names: true
 ```

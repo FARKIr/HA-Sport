@@ -12,7 +12,7 @@
  * so it always has the full data (brackets, tables, odds, streams) without
  * bloating entity attributes.
  */
-const CARD_VERSION = "1.1.0";
+const CARD_VERSION = "1.1.1";
 const WS = "ha_sport";
 
 const I18N = {
@@ -52,6 +52,19 @@ const I18N = {
 };
 
 const SPORT_EMOJI = { football: "⚽", "ice-hockey": "🏒", basketball: "🏀" };
+
+const norm = (v) =>
+  String(v ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+
+// Accepts a numeric id or a (part of a) name: "Chance Liga", "extraliga", "Sparta"
+const resolveId = (value, items) => {
+  if (value === undefined || value === null || value === "") return null;
+  if (/^\d+$/.test(String(value).trim())) return Number(value);
+  const q = norm(value);
+  const exact = items.find((i) => norm(i.name) === q);
+  const hit = exact || items.find((i) => norm(i.name).includes(q));
+  return hit ? Number(hit.id) : undefined; // undefined = not found
+};
 
 const esc = (v) =>
   v === null || v === undefined
@@ -230,10 +243,11 @@ class HaSportCard extends HTMLElement {
       const c = this._config;
       const mode = c.mode;
       const data = { overview: await this._ws({ type: "overview" }) };
+      this._resolveIds(data.overview);
       if (mode === "matches" || mode === "live") {
         data.matches = (await this._ws(this._matchQuery())).matches;
       } else if (mode === "team" || mode === "smart") {
-        const ids = c.team_id ? [c.team_id] : (data.overview.favorites || []).map((f) => f.id);
+        const ids = this._tid ? [this._tid] : (data.overview.favorites || []).map((f) => f.id);
         data.teams = await Promise.all(ids.slice(0, c.max_teams || 6).map((id) => this._ws({ type: "team", team_id: Number(id) })));
         if (mode === "smart") {
           const days = c.days || 7;
@@ -241,12 +255,12 @@ class HaSportCard extends HTMLElement {
           data.teams = data.teams.filter(
             (s) => s.next && (s.next.status === "inprogress" || (s.next.timestamp && s.next.timestamp <= horizon))
           );
-          if (!data.teams.length && c.competition_id) {
-            data.competition = await this._ws({ type: "competition", competition_id: String(c.competition_id) });
+          if (!data.teams.length && this._cid) {
+            data.competition = await this._ws({ type: "competition", competition_id: String(this._cid) });
           }
         }
-      } else if ((mode === "bracket" || mode === "standings") && c.competition_id) {
-        data.competition = await this._ws({ type: "competition", competition_id: String(c.competition_id) });
+      } else if ((mode === "bracket" || mode === "standings") && this._cid) {
+        data.competition = await this._ws({ type: "competition", competition_id: String(this._cid) });
       }
       this._data = data;
       this._error = null;
@@ -255,6 +269,26 @@ class HaSportCard extends HTMLElement {
     }
     this._loading = false;
     this._render();
+  }
+
+  _resolveIds(overview) {
+    const c = this._config;
+    const comps = overview?.competitions || [];
+    const favs = overview?.favorites || [];
+    this._hint = null;
+    this._cid = resolveId(c.competition_id ?? c.competition, comps);
+    this._tid = resolveId(c.team_id ?? c.team, favs);
+    if (this._cid === undefined) {
+      this._hint = `Soutěž „${c.competition_id ?? c.competition}“ nenalezena. Dostupné: ${comps.map((x) => `${x.name} (${x.id})`).join(", ") || "žádné"}`;
+      this._cid = null;
+    }
+    if (this._tid === undefined) {
+      this._hint = `Tým „${c.team_id ?? c.team}“ není mezi oblíbenými. Oblíbené: ${favs.map((x) => `${x.name} (${x.id})`).join(", ") || "žádné"}`;
+      this._tid = null;
+    }
+    if (!this._cid && !this._hint && ["bracket", "standings"].includes(c.mode)) {
+      this._hint = `Vyberte soutěž (competition: název nebo competition_id). Dostupné: ${comps.map((x) => `${x.name} (${x.id})`).join(", ") || "žádné – zkontrolujte integraci HA Sport"}`;
+    }
   }
 
   _matchQuery() {
@@ -267,8 +301,8 @@ class HaSportCard extends HTMLElement {
     if (status === "results") q.days_back = c.days_back || 7;
     const sport = c.sport || s.sport;
     if (sport) q.sport = sport;
-    if (c.competition_id) q.competition_id = Number(c.competition_id);
-    if (c.team_id) q.team_id = Number(c.team_id);
+    if (this._cid) q.competition_id = this._cid;
+    if (this._tid) q.team_id = this._tid;
     if (s.query) q.query = s.query;
     if (c.city) q.city = c.city;
     if (s.favOnly) q.favorites_only = true;
@@ -394,7 +428,7 @@ class HaSportCard extends HTMLElement {
   _title() {
     const c = this._config;
     if (c.title) return c.title;
-    const comp = this._data?.competition || (this._data?.overview?.competitions || []).find((x) => String(x.id) === String(c.competition_id));
+    const comp = this._data?.competition || (this._data?.overview?.competitions || []).find((x) => String(x.id) === String(this._cid));
     const t = this.t;
     switch (c.mode) {
       case "bracket": return comp ? `${t.bracket} · ${comp.name}` : t.bracket;
@@ -453,7 +487,8 @@ class HaSportCard extends HTMLElement {
     const el = this.shadowRoot.getElementById("body");
     const err = this.shadowRoot.getElementById("err");
     const t = this.t;
-    err.innerHTML = this._error ? `<div class="err">${esc(this._error.includes("unknown_command") ? t.not_loaded : this._error)}</div>` : "";
+    const msg = this._error ? (this._error.includes("unknown_command") ? t.not_loaded : this._error) : this._hint;
+    err.innerHTML = msg ? `<div class="err">${esc(msg)}</div>` : "";
     if (!this._data) {
       el.innerHTML = `<div class="empty">${t.loading}</div>`;
       return;
@@ -591,7 +626,7 @@ class HaSportCard extends HTMLElement {
   // bracket
   _bracketHtml(comp) {
     const t = this.t;
-    if (!comp) return `<div class="empty">${t.loading}</div>`;
+    if (!comp) return `<div class="empty">${this._cid ? t.loading : "—"}</div>`;
     const trees = comp.bracket || [];
     if (!trees.length) return `<div class="empty">${t.no_bracket}</div>` + (comp.has_standings ? this._standingsHtml(comp) : "");
     const idx = Math.min(this._state.treeIdx, trees.length - 1);
@@ -623,7 +658,7 @@ class HaSportCard extends HTMLElement {
   // standings
   _standingsHtml(comp) {
     const t = this.t;
-    if (!comp) return `<div class="empty">${t.loading}</div>`;
+    if (!comp) return `<div class="empty">${this._cid ? t.loading : "—"}</div>`;
     const tables = comp.standings || [];
     if (!tables.length) return `<div class="empty">${t.no_table}</div>`;
     const idx = Math.min(this._state.tableIdx, tables.length - 1);
