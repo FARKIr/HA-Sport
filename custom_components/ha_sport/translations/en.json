@@ -88,7 +88,8 @@
           "competitions": "Competitions",
           "favorites": "Favorite teams",
           "notifications": "Notifications",
-          "general": "General (polling, odds, TV)"
+          "general": "General (polling, odds, TV)",
+          "szlh": "SZĽH competitions (youth, lower leagues)"
         }
       },
       "competitions": {
@@ -165,6 +166,19 @@
           "odds_api_key": "Second odds source. Free key after registering on The Odds API website (500 requests/month). Empty = disabled.",
           "odds_bookmakers": "How many extra bookmakers to query for favorite matches; the best odd is picked."
         }
+      },
+      "szlh": {
+        "title": "Slovak Ice Hockey Federation competitions",
+        "description": "Competitions from HockeySlovakia.sk that Sofascore does not cover – youth leagues (e.g. 6th grade), regional and lower leagues. Type part of the name or leave empty for the full list.",
+        "data": {
+          "search": "Search competition"
+        }
+      },
+      "szlh_select": {
+        "title": "Select SZĽH competitions",
+        "data": {
+          "selected": "Competitions"
+        }
       }
     },
     "error": {
@@ -173,7 +187,8 @@
       "no_sport": "Select at least one sport.",
       "no_country": "Select at least one country.",
       "no_competition": "Select at least one competition.",
-      "no_results": "Nothing found. Submit to continue."
+      "no_results": "Nothing found. Submit to continue.",
+      "cannot_connect_szlh": "Cannot load competitions from HockeySlovakia.sk: {error}"
     }
   },
   "entity": {

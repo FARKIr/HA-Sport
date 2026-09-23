@@ -14,6 +14,7 @@ góly se jménem střelce, červené karty, sestavy, pohyb kurzu, průběžné s
 | Oblast | Funkce |
 |---|---|
 | **Soutěže** | Automaticky najde všechny soutěže CZ/SK pro zvolené sporty (Chance Liga, Chance Národní liga, MOL Cup, Niké liga, Slovnaft Cup, Tipsport extraliga, Chance liga (hokej), Tipsport liga SK, Maxa/Kooperativa NBL, Tipos SBL, ženské a mládežnické soutěže…) |
+| **Mládež a nižší soutěže SZĽH** | Soutěže z [HockeySlovakia.sk](https://www.hockeyslovakia.sk/sk/stats/tournaments), které Sofascore nemá – např. Liga mladších žiakov 6. ročník, 1. liga mladších žiakov, krajské a regionální ligy: tabulky (vč. bodů na zápas), program, výsledky, oblíbené týmy se senzory, kalendář a připomenutí |
 | **Zápasy** | Nadcházející, živé (minuta / třetina / čtvrtina), výsledky, datum a čas, kolo, stadion a město |
 | **Tabulky** | Pořadí, body, skóre, barevné označení postupových a sestupových míst, zvýraznění oblíbených týmů |
 | **Pavouk** | Play-off / pohárový pavouk: stav série, vítěz, živé série, termín dalšího zápasu a kurz |
@@ -44,7 +45,21 @@ Zkopírujte složku `custom_components/ha_sport` do `config/custom_components/` 
 3. **Oblíbené týmy**: vyberte ze seznamu týmů zvolených soutěží nebo vyhledejte jiný tým (např. reprezentaci „Česko“, klub z jiné soutěže).
 4. **Oznámení**: kdy a kam je posílat.
 
-Všechno jde později změnit přes **Konfigurovat** (soutěže, oblíbené týmy, oznámení, obecné).
+Všechno jde později změnit přes **Konfigurovat** (soutěže, soutěže SZĽH, oblíbené týmy, oznámení, obecné).
+
+### Mládežnické a nižší soutěže SZĽH (HockeySlovakia.sk)
+
+Soutěže, které Sofascore nemá, například dětské ligy (Liga mladších žiakov 6. ročník / HP6), krajské a regionální soutěže:
+
+1. *Konfigurovat → Soutěže SZĽH (mládež, nižší ligy)*
+2. Napište část názvu (např. `6. ročník`, `mladší žiaci`, `Východ`) nebo nechte prázdné pro celý seznam.
+3. Zaškrtněte soutěže a uložte.
+4. V *Konfigurovat → Oblíbené týmy* pak najdete i týmy těchto soutěží (např. HKM Zvolen) a přidáte je mezi oblíbené.
+
+Soutěž se chová jako ostatní: senzor soutěže, tabulka (včetně sloupce **B/Z** – body na zápas), program a výsledky
+v kartě, oblíbený tým má senzory příštího zápasu, posledního výsledku, formy a pozice, kalendář a připomenutí
+před zápasem. HockeySlovakia.sk nemá veřejné API, data se čtou z jejich webových stránek (obnova v běžném intervalu,
+výsledek zápasu se objeví po jeho zapsání svazem). U těchto soutěží nejsou kurzy, streamy ani živé skóre.
 
 ### Karta na nástěnku (instaluje se zvlášť)
 Integrace a karta jsou dvě samostatné věci – HACS z jednoho repozitáře nainstaluje jen integraci.
@@ -53,7 +68,7 @@ Kartu přidáte ručně:
 1. Stáhněte [`card/ha-sport-card.js`](card/ha-sport-card.js) a uložte ho do `/config/www/ha-sport-card.js`
    (složku `www` případně vytvořte; po jejím prvním vytvoření restartujte HA).
 2. *Nastavení → Nástěnky → ⋮ → Zdroje → Přidat zdroj*
-   * URL: `/local/ha-sport-card.js?v=1.2.0`
+   * URL: `/local/ha-sport-card.js?v=1.3.0`
    * Typ: **JavaScript modul**
 3. Obnovte prohlížeč (Ctrl+F5, v mobilní aplikaci *Nastavení → Aplikace → Obnovit frontend*).
 
@@ -278,6 +293,11 @@ Informace o vysílacích právech v sezóně 2025/26–2026/27 (použité pro od
 * `... knihovna curl_cffi není nainstalovaná` – zkontrolujte log HA (*Nastavení → Systém → Protokoly*), proč se
   balíček nenainstaloval. Je k dispozici pro x86_64 a ARM64 (Raspberry Pi 4/5 s 64bitovým systémem).
 * `ClientConnectorError` / `Timeout` – HA se nedostane na internet, případně DNS nebo firewall.
+
+**Soutěž SZĽH nemá tabulku nebo zápasy** – parser hledá na stránkách HockeySlovakia.sk tabulky podle názvů sloupců.
+Pokud svaz změní vzhled stránek, otevřete stránku tabulky nebo výsledků soutěže v prohlížeči, uložte ji
+(Ctrl+S, „jen HTML“) a pošlete ji – parser se podle ní upraví. Chyba stahování je v logu HA
+(`HockeySlovakia.sk: …`).
 
 **Chybí kurzy** – podívejte se na atribut `odds` senzoru **Poslední aktualizace**:
 

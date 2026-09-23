@@ -231,3 +231,79 @@ async def test_goal_scorer_red_card_and_odds_alert(hass: HomeAssistant, fake_api
     goal = [e.data for e in events if e.data["kind"] == "score"]
     assert goal and "L. Haraslín" in goal[-1]["message"]
     assert any(e.data["kind"] == "red_card" and "Holeš" in e.data["title"] for e in events)
+
+
+SZLH_PAGES = {
+    "/sk/stats/tournaments": """
+        <h2>Mládež</h2>
+        <a href="/sk/stats/home/819/liga-mladsich-ziakov-6-rocnik">Liga mladších žiakov 6.ročník</a>
+        <a href="/sk/stats/home/627/1-liga-mladsich-ziakov-6-rocnik">1. liga mladších žiakov 6.ročník</a>
+        <h2>Seniori</h2><a href="/sk/stats/home/1131/tipsport-liga">Tipsport liga</a>""",
+    "/sk/stats/standings/819/liga-mladsich-ziakov-6-rocnik": """
+        <h3>Liga A</h3><table><tr><th>#</th><th>Tím</th><th>Z</th><th>V</th><th>P</th><th>Skóre</th><th>B</th></tr>
+        <tr><td>1.</td><td>HC Košice B</td><td>3</td><td>3</td><td>0</td><td>33:7</td><td>18</td></tr>
+        <tr><td>4.</td><td>HKM Zvolen</td><td>3</td><td>2</td><td>1</td><td>43:16</td><td>16</td></tr></table>""",
+    "/sk/stats/results/819/liga-mladsich-ziakov-6-rocnik": "",  # filled in the test (needs dates relative to now)
+}
+
+
+async def test_szlh_competition_youth_league(hass: HomeAssistant, hass_ws_client, fake_api) -> None:
+    from datetime import datetime, timedelta
+
+    from custom_components.ha_sport.szlh import team_id
+
+    soon = datetime.now() + timedelta(days=2)
+    past = datetime.now() - timedelta(days=3)
+    SZLH_PAGES["/sk/stats/results/819/liga-mladsich-ziakov-6-rocnik"] = f"""
+        <table>
+        <tr><td>{past:%d. %m. %Y}</td></tr>
+        <tr><td>09:00</td><td>HKM Zvolen</td><td>7:2</td><td>HC Košice B</td></tr>
+        <tr><td>{soon:%d. %m. %Y}</td></tr>
+        <tr><td>10:15</td><td>HK Dukla Trenčín</td><td></td><td>HKM Zvolen</td></tr>
+        </table>"""
+
+    async def fake_get(self, path):
+        return SZLH_PAGES.get(path)
+
+    with patch("custom_components.ha_sport.szlh.SzlhClient._get", new=fake_get):
+        entry = await _setup(hass)
+        # options: SZĽH -> search -> select
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+        result = await hass.config_entries.options.async_configure(result["flow_id"], {"next_step_id": "szlh"})
+        assert result["step_id"] == "szlh"
+        result = await hass.config_entries.options.async_configure(result["flow_id"], {"search": "6. rocnik"})
+        assert result["step_id"] == "szlh_select"
+        options = [o["value"] for o in result["data_schema"].schema["selected"].config["options"]]
+        assert options == ["819", "627"] or sorted(options) == ["627", "819"]
+        result = await hass.config_entries.options.async_configure(result["flow_id"], {"selected": ["819"]})
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+        comps = entry.options["competitions"]
+        assert any(c["id"] == "szlh-819" and c["source"] == "szlh" for c in comps)
+        assert any(c["id"] == 172 for c in comps)  # Sofascore competitions kept
+        await hass.async_block_till_done()
+
+        # favorite HKM Zvolen (negative id)
+        zvolen = team_id("HKM Zvolen")
+        hass.config_entries.async_update_entry(
+            entry, options={**entry.options, "favorite_teams": [
+                *entry.options.get("favorite_teams", entry.data["favorite_teams"]),
+                {"id": zvolen, "name": "HKM Zvolen", "sport": "ice-hockey"}]}
+        )
+        await hass.async_block_till_done()
+        coord = entry.runtime_data.coordinator
+        assert coord.standings["szlh-819"][0]["rows"][1]["team"] == "HKM Zvolen"
+        summary = coord.team_summary(zvolen)
+        assert summary["next"]["away"]["name"] == "HKM Zvolen"
+        assert summary["form"] == ["W"]
+        assert summary["position"]["points"] == 16
+        assert not summary["next"]["streams"]
+
+        client = await hass_ws_client(hass)
+        await client.send_json({"id": 1, "type": "ha_sport/matches", "competition_id": "szlh-819", "status": "results"})
+        msg = await client.receive_json()
+        assert msg["success"] and msg["result"]["matches"][0]["home"]["score"] == 7
+        await client.send_json({"id": 2, "type": "ha_sport/competition", "competition_id": "szlh-819"})
+        msg = await client.receive_json()
+        assert msg["result"]["standings"][0]["rows"][0]["points_per_game"] == 6.0
+        # sensors of the youth team exist
+        assert any(s.attributes.get("team_id") == zvolen for s in hass.states.async_all("sensor"))

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from typing import Any
 
 import voluptuous as vol
@@ -77,6 +78,7 @@ from .const import (
 )
 from .models import normalize_team
 from .streams import normalize
+from .szlh import BASE as SZLH_BASE, SOURCE as SZLH, SzlhClient
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -171,10 +173,25 @@ def competition_values(comps: list[dict[str, Any]]) -> list[str]:
     return [f"{c['sport']}|{c['country']}|{c['id']}|{c['name']}" for c in comps]
 
 
-async def teams_of_competitions(client: SofascoreClient, comps: list[dict[str, Any]]) -> list[dict[str, Any]]:
+async def teams_of_competitions(
+    client: SofascoreClient, comps: list[dict[str, Any]], szlh: SzlhClient | None = None
+) -> list[dict[str, Any]]:
     """Collect team list from standings (or recent matches) of the competitions."""
 
     async def one(comp: dict[str, Any]) -> list[dict[str, Any]]:
+        if comp.get("source") == SZLH:
+            if szlh is None:
+                return []
+            rows = [r for t in await szlh.standings(comp) for r in t["rows"]]
+            if not rows:
+                rows = [
+                    {"team_id": side["id"], "team": side["name"]}
+                    for ev in await szlh.matches(comp) for side in (ev["home"], ev["away"])
+                ]
+            return [
+                {"id": r["team_id"], "name": r["team"], "sport": comp["sport"], "competition": comp["name"]}
+                for r in rows
+            ]
         seasons = await client.seasons(comp["id"])
         if not seasons:
             return []
@@ -424,7 +441,7 @@ class SportOptionsFlow(OptionsFlow):
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         return self.async_show_menu(
             step_id="init",
-            menu_options=["competitions", "favorites", "notifications", "general"],
+            menu_options=["competitions", "szlh", "favorites", "notifications", "general"],
         )
 
     async def async_step_competitions(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
@@ -455,7 +472,9 @@ class SportOptionsFlow(OptionsFlow):
     async def async_step_favorites(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         current = self._get(CONF_FAVORITE_TEAMS, [])
         if not self._teams:
-            self._teams = await teams_of_competitions(self._client(), self._get(CONF_COMPETITIONS, []))
+            self._teams = await teams_of_competitions(
+                self._client(), self._get(CONF_COMPETITIONS, []), SzlhClient(async_get_clientsession(self.hass))
+            )
             known = {t["id"] for t in self._teams}
             self._teams.extend(t for t in current if t["id"] not in known)
             self._selected = [team_value(t) for t in current]
@@ -492,6 +511,62 @@ class SportOptionsFlow(OptionsFlow):
             {vol.Optional("results", default=[]): _sel([(team_value(t), team_label(t)) for t in self._search])}
         )
         return self.async_show_form(step_id="search", data_schema=schema)
+
+    async def async_step_szlh(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Competitions of the Slovak Ice Hockey Federation – step 1: search."""
+        errors: dict[str, str] = {}
+        placeholders = {"error": ""}
+        if not getattr(self, "_szlh_all", None):
+            client = SzlhClient(async_get_clientsession(self.hass))
+            self._szlh_all = await client.tournaments()
+            if not self._szlh_all:
+                errors["base"] = "cannot_connect_szlh"
+                placeholders["error"] = client.last_error or ""
+        if user_input is not None and not errors:
+            self._szlh_query = normalize(user_input.get("search") or "")
+            return await self.async_step_szlh_select()
+        return self.async_show_form(
+            step_id="szlh",
+            data_schema=vol.Schema({vol.Optional("search"): TextSelector()}),
+            errors=errors,
+            description_placeholders=placeholders,
+        )
+
+    async def async_step_szlh_select(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Step 2: pick competitions (filtered by the search)."""
+        current = [c for c in self._get(CONF_COMPETITIONS, []) if c.get("source") == SZLH]
+        known = {t["id"]: t for t in self._szlh_all}
+        if user_input is not None:
+            chosen = {int(v) for v in user_input.get("selected", [])}
+            new = []
+            for tid in chosen:
+                prev = next((c for c in current if c["szlh_id"] == tid), None)
+                t = known.get(tid)
+                if prev:
+                    new.append(prev)
+                elif t:
+                    new.append({
+                        "id": f"szlh-{tid}", "szlh_id": tid, "slug": t["slug"], "name": t["name"],
+                        "sport": "ice-hockey", "country": "SK", "source": SZLH,
+                        "url": f"{SZLH_BASE}/sk/stats/results/{tid}/{t['slug']}".rstrip("/"),
+                    })
+            others = [c for c in self._get(CONF_COMPETITIONS, []) if c.get("source") != SZLH]
+            return self._save({CONF_COMPETITIONS: others + new})
+        query = getattr(self, "_szlh_query", "")
+        def matches(t: dict[str, Any]) -> bool:
+            # every word of the query, ignoring spaces/dots ("6. rocnik" finds "6.ročník")
+            hay = re.sub(r"[^a-z0-9]", "", normalize(f"{t['name']} {t['group']}"))
+            words = [re.sub(r"[^a-z0-9]", "", w) for w in query.split()]
+            return all(w in hay for w in words if w)
+
+        items = [t for t in self._szlh_all if matches(t)]
+        options = [(str(t["id"]), f"🏒 {t['name']}" + (f"  ({t['group']})" if t.get("group") else "")) for t in items]
+        values = {v for v, _ in options}
+        options += [(str(c["szlh_id"]), f"🏒 {c['name']}") for c in current if str(c["szlh_id"]) not in values]
+        schema = vol.Schema(
+            {vol.Optional("selected", default=[str(c["szlh_id"]) for c in current]): _sel(options, mode=SelectSelectorMode.LIST)}
+        )
+        return self.async_show_form(step_id="szlh_select", data_schema=schema)
 
     async def async_step_notifications(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:

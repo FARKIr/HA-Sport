@@ -65,7 +65,7 @@ def ws_overview(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
     {
         vol.Required("type"): f"{DOMAIN}/matches",
         vol.Optional("sport"): vol.Any(None, vol.In(list(SPORTS))),
-        vol.Optional("competition_id"): vol.Any(None, vol.Coerce(int)),
+        vol.Optional("competition_id"): vol.Any(None, vol.Coerce(str)),
         vol.Optional("team_id"): vol.Any(None, vol.Coerce(int)),
         vol.Optional("query"): vol.Any(None, str),
         vol.Optional("city"): vol.Any(None, str),

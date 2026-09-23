@@ -88,7 +88,8 @@
           "competitions": "Soutěže",
           "favorites": "Oblíbené týmy",
           "notifications": "Oznámení",
-          "general": "Obecné (obnovování, kurzy, TV)"
+          "general": "Obecné (obnovování, kurzy, TV)",
+          "szlh": "Soutěže SZĽH (mládež, nižší ligy)"
         }
       },
       "competitions": {
@@ -165,6 +166,19 @@
           "odds_api_key": "Druhý zdroj kurzů. Klíč zdarma po registraci na webu The Odds API (500 dotazů/měsíc). Prázdné = nepoužívat.",
           "odds_bookmakers": "Kolik dalších sázkovek zkusit u zápasů oblíbených týmů. Porovnají se a vybere se nejlepší kurz."
         }
+      },
+      "szlh": {
+        "title": "Soutěže Slovenského zväzu ľadového hokeja",
+        "description": "Soutěže z HockeySlovakia.sk, které Sofascore nemá – mládežnické ligy (např. Liga mladších žiakov 6. ročník), krajské a nižší soutěže. Zadejte část názvu (např. „6. ročník“, „mladší žiaci“, „Východ“) nebo nechte prázdné pro celý seznam.",
+        "data": {
+          "search": "Hledat soutěž"
+        }
+      },
+      "szlh_select": {
+        "title": "Vyberte soutěže SZĽH",
+        "data": {
+          "selected": "Soutěže"
+        }
       }
     },
     "error": {
@@ -173,7 +187,8 @@
       "no_sport": "Vyberte alespoň jeden sport.",
       "no_country": "Vyberte alespoň jednu zemi.",
       "no_competition": "Vyberte alespoň jednu soutěž.",
-      "no_results": "Nic nenalezeno. Pokračujte odesláním."
+      "no_results": "Nic nenalezeno. Pokračujte odesláním.",
+      "cannot_connect_szlh": "Nelze načíst seznam soutěží z HockeySlovakia.sk: {error}"
     }
   },
   "entity": {

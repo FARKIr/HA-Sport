@@ -38,7 +38,7 @@ EVENT_SCHEMA = vol.Schema({vol.Required(ATTR_EVENT_ID): vol.Coerce(int)})
 GET_MATCHES_SCHEMA = vol.Schema(
     {
         vol.Optional("sport"): vol.In(list(SPORTS)),
-        vol.Optional("competition_id"): vol.Coerce(int),
+        vol.Optional("competition_id"): cv.string,
         vol.Optional(ATTR_TEAM_ID): vol.Coerce(int),
         vol.Optional(ATTR_QUERY): cv.string,
         vol.Optional("city"): cv.string,

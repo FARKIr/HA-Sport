@@ -12,7 +12,7 @@
  * so it always has the full data (brackets, tables, odds, streams) without
  * bloating entity attributes.
  */
-const CARD_VERSION = "1.2.0";
+const CARD_VERSION = "1.3.0";
 const WS = "ha_sport";
 
 const I18N = {
@@ -62,11 +62,14 @@ const norm = (v) =>
 // Accepts a numeric id or a (part of a) name: "Chance Liga", "extraliga", "Sparta"
 const resolveId = (value, items) => {
   if (value === undefined || value === null || value === "") return null;
-  if (/^\d+$/.test(String(value).trim())) return Number(value);
+  const raw = String(value).trim();
+  if (/^-?\d+$/.test(raw)) return Number(raw);
+  const byId = items.find((i) => String(i.id) === raw); // e.g. "szlh-819"
+  if (byId) return byId.id;
   const q = norm(value);
   const exact = items.find((i) => norm(i.name) === q);
   const hit = exact || items.find((i) => norm(i.name).includes(q));
-  return hit ? Number(hit.id) : undefined; // undefined = not found
+  return hit ? hit.id : undefined; // undefined = not found
 };
 
 const esc = (v) =>
@@ -765,6 +768,7 @@ class HaSportCard extends HTMLElement {
     const promoColors = {};
     const palette = ["#43a047", "#1e88e5", "#8e24aa", "#fb8c00", "#e53935", "#00897b"];
     const rows = tables[idx].rows;
+    const ppg = rows.some((r) => r.points_per_game !== undefined && r.points_per_game !== null);
     const max = this._config.max_rows || rows.length;
     const body = rows.slice(0, max).map((r) => {
       let color = "";
@@ -779,14 +783,14 @@ class HaSportCard extends HTMLElement {
         <td>${r.played ?? ""}</td><td class="hide-narrow">${r.wins ?? ""}</td>
         ${comp.sport === "basketball" ? "" : `<td class="hide-narrow">${hockey ? (r.ot_wins ?? 0) + "/" + (r.ot_losses ?? 0) : r.draws ?? ""}</td>`}
         <td class="hide-narrow">${r.losses ?? ""}</td>
-        <td>${r.scores_for ?? ""}:${r.scores_against ?? ""}</td><td class="pts">${r.points ?? r.percentage ?? ""}</td></tr>`;
+        <td>${r.scores_for ?? ""}:${r.scores_against ?? ""}</td><td class="pts">${r.points ?? r.percentage ?? ""}</td>${ppg ? `<td class="hide-narrow">${r.points_per_game ?? ""}</td>` : ""}</tr>`;
     }).join("");
     const hockey = comp.sport === "ice-hockey";
     const legend = Object.entries(promoColors)
       .map(([k, v]) => `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:10px"><span style="width:10px;height:10px;border-radius:2px;background:${v}"></span>${esc(k)}</span>`)
       .join("");
     return `${tabs}<div class="tbl-wrap"><table><thead><tr><th>#</th><th style="text-align:left">${t.team}</th><th>${t.p}</th><th class="hide-narrow">${t.w}</th>
-      ${comp.sport === "basketball" ? "" : `<th class="hide-narrow">${hockey ? "P/P" : t.d}</th>`}<th class="hide-narrow">${t.l}</th><th>${t.score}</th><th>${t.pts}</th></tr></thead>
+      ${comp.sport === "basketball" ? "" : `<th class="hide-narrow">${hockey ? "P/P" : t.d}</th>`}<th class="hide-narrow">${t.l}</th><th>${t.score}</th><th>${t.pts}</th>${ppg ? `<th class="hide-narrow" title="body na zápas">B/Z</th>` : ""}</tr></thead>
       <tbody>${body}</tbody></table>${legend ? `<div style="font-size:.75em;color:var(--secondary-text-color);padding-top:8px">${legend}</div>` : ""}</div>`;
   }
 

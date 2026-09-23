@@ -63,6 +63,7 @@ from .models import (
 )
 from .odds_api import OddsApiClient, bookmakers_from_event, match_event
 from .streams import streams_for_event
+from .szlh import SOURCE as SZLH, SzlhClient
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -116,6 +117,7 @@ class SportCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._external_odds: dict[int, list[tuple[str, dict[str, Any]]]] = {}
         self.odds_opening: dict[int, dict[str, float]] = {}
         self._detail_fetched: dict[str, float] = {}
+        self.szlh = SzlhClient(client._session)  # noqa: SLF001
         key = entry_option(entry, CONF_ODDS_API_KEY)
         self.odds_api: OddsApiClient | None = (
             OddsApiClient(
@@ -201,6 +203,9 @@ class SportCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Seasons, standings, brackets – refreshed hourly."""
 
         async def one(ut_id: str, comp: dict[str, Any]) -> None:
+            if comp.get("source") == SZLH:
+                await self._refresh_szlh_standings(ut_id, comp)
+                return
             seasons = await self.client.seasons(int(ut_id))
             if not seasons:
                 return
@@ -262,16 +267,45 @@ class SportCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 ev["country"] = comp.get("country") if comp else None
             self.events[ev["id"]] = ev
 
+    async def _refresh_szlh_standings(self, ut_id: str, comp: dict[str, Any]) -> None:
+        """HockeySlovakia.sk competition (youth / lower leagues)."""
+        self.seasons[ut_id] = {"id": 0, "name": None}
+        standings = await self.szlh.standings(comp)
+        if not standings:
+            return
+        self.standings[ut_id] = standings
+        for table in standings:
+            for row in table["rows"]:
+                self.teams.setdefault(
+                    row["team_id"],
+                    {"id": row["team_id"], "name": row["team"], "short": row["short"], "sport": comp["sport"],
+                     "logo": None, "country": "SK", "city_checked": True, "source": SZLH},
+                )
+
     async def _refresh_events(self) -> None:
         """Upcoming and past matches of the competitions and favorite teams."""
         tasks = []
+        szlh = [comp for comp in self.competitions.values() if comp.get("source") == SZLH]
+        if szlh:
+            results = await asyncio.gather(*(self.szlh.matches(c) for c in szlh), return_exceptions=True)
+            for res in results:
+                if isinstance(res, list):
+                    for ev in res:
+                        old = self.events.get(ev["id"])
+                        if old and old.get("venue"):
+                            ev["venue"] = old["venue"]
+                        self.events[ev["id"]] = ev
         for ut_id, comp in self.competitions.items():
+            if comp.get("source") == SZLH:
+                continue
             season = self.seasons.get(ut_id)
             if not season:
                 continue
             for direction in ("next", "last"):
                 tasks.append((comp["sport"], self.client.season_events(int(ut_id), season["id"], direction)))
         for tid, team in self.favorites.items():
+            if tid < 0:  # HockeySlovakia.sk team – matches come from its competition
+                continue
             for direction in ("next", "last"):
                 tasks.append((team.get("sport"), self._team_events_wrapped(tid, direction)))
         results = await asyncio.gather(*(t[1] for t in tasks), return_exceptions=True)
@@ -283,7 +317,7 @@ class SportCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             events = res[0] if isinstance(res, tuple) else res
             self._ingest(events, sport)
             ok += 1
-        if tasks and not ok:
+        if tasks and not ok and not szlh:
             raise SportApiError("Nepodařilo se načíst žádné zápasy")
 
     async def _team_events_wrapped(self, team_id: int, direction: str) -> list[dict[str, Any]]:
@@ -303,6 +337,8 @@ class SportCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         now = time.time()
         relevant_sports = set()
         for ev in self.events.values():
+            if ev.get("source") == SZLH:
+                continue
             if ev["status"] == STATUS_LIVE or (
                 ev["status"] == STATUS_NOT_STARTED
                 and ev.get("timestamp")
@@ -326,6 +362,7 @@ class SportCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             ev["id"]
             for ev in self.events.values()
             if ev["id"] not in live_ids
+            and ev.get("source") != SZLH
             and ev["sport"] in relevant_sports
             and (
                 ev["status"] == STATUS_LIVE
@@ -346,6 +383,7 @@ class SportCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             (
                 e for e in self.events.values()
                 if e["status"] in (STATUS_NOT_STARTED, STATUS_LIVE)
+                and e.get("source") != SZLH
                 and e.get("timestamp") and e["timestamp"] <= horizon
             ),
             key=lambda e: (not self._is_favorite_event(e), e["timestamp"]),
@@ -372,7 +410,7 @@ class SportCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # team details for city filtering
         missing = [
             tid for tid in set(self.teams) | set(self.favorites)
-            if now - self._team_fetched.get(tid, 0) > TEAM_CACHE_HOURS * 3600
+            if tid > 0 and now - self._team_fetched.get(tid, 0) > TEAM_CACHE_HOURS * 3600
             and not (self.teams.get(tid) or {}).get("city_checked")
         ][:MAX_TEAM_DETAILS_PER_CYCLE]
         tasks.extend(self._fetch_team(tid) for tid in missing)
@@ -383,6 +421,8 @@ class SportCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             await self._refresh_external_odds(upcoming)
         # always make sure there are some stream links
         for ev in self.events.values():
+            if ev.get("source") == SZLH:
+                continue
             if not ev.get("streams"):
                 ev["streams"] = streams_for_event(ev.get("tv"), ev["sport"], ev.get("competition") or "", ev.get("country"))
             if not ev.get("city"):
@@ -460,7 +500,7 @@ class SportCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         now = time.time()
         mine = [
             e for e in self.events.values()
-            if self._is_favorite_event(e) or e["id"] in self.followed
+            if (self._is_favorite_event(e) or e["id"] in self.followed) and e.get("source") != SZLH
         ]
         tasks = []
         for ev in mine:
@@ -572,11 +612,14 @@ class SportCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def _adjust_interval(self) -> None:
         now = time.time()
         live_window = any(
-            ev["status"] == STATUS_LIVE
-            or (
-                ev["status"] == STATUS_NOT_STARTED
-                and ev.get("timestamp")
-                and ev["timestamp"] - PRE_LIVE_WINDOW_MINUTES * 60 <= now <= ev["timestamp"] + 3 * 3600
+            ev.get("source") != SZLH
+            and (
+                ev["status"] == STATUS_LIVE
+                or (
+                    ev["status"] == STATUS_NOT_STARTED
+                    and ev.get("timestamp")
+                    and ev["timestamp"] - PRE_LIVE_WINDOW_MINUTES * 60 <= now <= ev["timestamp"] + 3 * 3600
+                )
             )
             for ev in self.events.values()
         )
@@ -587,7 +630,8 @@ class SportCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # wake up in time for the next kick-off window
             upcoming = [
                 ev["timestamp"] for ev in self.events.values()
-                if ev["status"] == STATUS_NOT_STARTED and ev.get("timestamp") and ev["timestamp"] > now
+                if ev["status"] == STATUS_NOT_STARTED and ev.get("source") != SZLH
+                and ev.get("timestamp") and ev["timestamp"] > now
             ]
             if upcoming:
                 until = min(upcoming) - PRE_LIVE_WINDOW_MINUTES * 60 - now
@@ -682,7 +726,7 @@ class SportCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "bracket": self.brackets.get(str(ut_id), []),
                 "has_standings": bool(self.standings.get(str(ut_id))),
                 "has_bracket": bool(self.brackets.get(str(ut_id))),
-                "logo": f"{self.logo_base}/tournament/{ut_id}",
+                "logo": None if comp.get("source") == SZLH else f"{self.logo_base}/tournament/{ut_id}",
             }
         )
         return comp

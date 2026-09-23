@@ -44,16 +44,14 @@ get_matches:
             - basketball
           translation_key: sport
     competition_id:
+      example: "172"
       selector:
-        number:
-          min: 1
-          max: 999999999
-          mode: box
+        text:
     team_id:
       selector:
         number:
-          min: 1
-          max: 999999999
+          min: -2147483647
+          max: 2147483647
           mode: box
     query:
       example: "Sparta"
@@ -99,8 +97,8 @@ get_team:
       required: true
       selector:
         number:
-          min: 1
-          max: 999999999
+          min: -2147483647
+          max: 2147483647
           mode: box
 
 search_team:
@@ -125,8 +123,8 @@ add_favorite:
       required: true
       selector:
         number:
-          min: 1
-          max: 999999999
+          min: -2147483647
+          max: 2147483647
           mode: box
 
 remove_favorite:
@@ -135,8 +133,8 @@ remove_favorite:
       required: true
       selector:
         number:
-          min: 1
-          max: 999999999
+          min: -2147483647
+          max: 2147483647
           mode: box
 
 get_event:
