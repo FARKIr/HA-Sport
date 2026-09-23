@@ -15,7 +15,7 @@
       },
       "competitions": {
         "title": "Soutěže",
-        "description": "Vyberte soutěže, které chcete sledovat (ligy, poháry, play-off).",
+        "description": "Vyberte soutěže ze Sofascore (ligy, poháry, play-off). Vybrané soutěže se v rozbalovacím seznamu skryjí. Mládežnické a nižší soutěže SZĽH (např. Liga mladších žiakov 6. ročník) přidáte v Konfigurovat → Soutěže SZĽH.",
         "data": {
           "competitions": "Soutěže"
         }
@@ -94,7 +94,7 @@
       },
       "competitions": {
         "title": "Soutěže",
-        "description": "Vyberte soutěže, které chcete sledovat (ligy, poháry, play-off).",
+        "description": "Vyberte soutěže ze Sofascore (ligy, poháry, play-off). Vybrané soutěže se v rozbalovacím seznamu skryjí. Mládežnické a nižší soutěže SZĽH (např. Liga mladších žiakov 6. ročník) přidáte v Konfigurovat → Soutěže SZĽH.",
         "data": {
           "competitions": "Soutěže"
         }

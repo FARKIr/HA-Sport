@@ -15,7 +15,7 @@
       },
       "competitions": {
         "title": "Competitions",
-        "description": "Select competitions to follow (leagues, cups, play-offs).",
+        "description": "Select Sofascore competitions (leagues, cups, play-offs). Already selected ones are hidden in the dropdown. SZĽH youth and lower leagues (e.g. 6th grade) are added in Configure → SZĽH competitions.",
         "data": {
           "competitions": "Competitions"
         }
@@ -94,7 +94,7 @@
       },
       "competitions": {
         "title": "Competitions",
-        "description": "Select competitions to follow (leagues, cups, play-offs).",
+        "description": "Select Sofascore competitions (leagues, cups, play-offs). Already selected ones are hidden in the dropdown. SZĽH youth and lower leagues (e.g. 6th grade) are added in Configure → SZĽH competitions.",
         "data": {
           "competitions": "Competitions"
         }
