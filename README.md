@@ -37,37 +37,79 @@ góly se jménem střelce, červené karty, sestavy, pohyb kurzu, průběžné s
 ### Ručně
 Zkopírujte složku `custom_components/ha_sport` do `config/custom_components/` a restartujte HA.
 
+### Aktualizace
+Repozitář zatím nemá vydané verze (releases), HACS proto novou verzi sám hned nenabídne:
+
+1. HACS → **HA Sport CZ/SK** → **⋮ → Update information** (Aktualizovat informace).
+2. **⋮ → Redownload** (Stáhnout znovu) → potvrdit.
+3. **Restartujte Home Assistant** (*Nastavení → Systém → Restartovat*) – znovunačtení integrace nestačí.
+4. V prohlížeči **Ctrl+F5** (texty dialogů se ukládají do mezipaměti prohlížeče).
+5. Kartu aktualizujte zvlášť – viz [Karta na nástěnku](#karta-na-nástěnku-instaluje-se-zvlášť).
+
+Nainstalovanou verzi integrace najdete v *Nastavení → Zařízení a služby → HA Sport CZ/SK* (u zařízení).
+
 ### Nastavení
 *Nastavení → Zařízení a služby → Přidat integraci → HA Sport CZ/SK*
 
 1. **Sporty a země**: fotbal / hokej / basketbal, Česko / Slovensko.
-2. **Soutěže**: hlavní ligy a poháry jsou předvybrané.
-3. **Oblíbené týmy**: vyberte ze seznamu týmů zvolených soutěží nebo vyhledejte jiný tým (např. reprezentaci „Česko“, klub z jiné soutěže).
+2. **Soutěže**: hlavní ligy a poháry jsou předvybrané. Při hokeji + Slovensku jsou v seznamu i soutěže SZĽH
+   (mládež, nižší ligy) a pole **Odkaz na soutěž SZĽH** – je předvyplněné odkazem na *Ligu mladších žiakov AA*
+   (stačí potvrdit, nebo smazat / přepsat).
+3. **Oblíbené týmy**: vyberte ze seznamu týmů zvolených soutěží nebo vyhledejte jiný tým (např. reprezentaci „Česko“,
+   klub z jiné soutěže). Pokud je v seznamu **HKM Zvolen**, je předvybraný.
 4. **Oznámení**: kdy a kam je posílat.
 
-Všechno jde později změnit přes **Konfigurovat** (soutěže, soutěže SZĽH, oblíbené týmy, oznámení, obecné).
+Všechno jde později změnit přes **Konfigurovat**:
+
+| Položka | Co v ní je |
+|---|---|
+| **Soutěže** | výběr soutěží (Sofascore + „🏒 SZĽH · …“) a pole pro vložení odkazu na soutěž SZĽH |
+| **Soutěže SZĽH (mládež, nižší ligy)** | samostatné hledání jen v soutěžích HockeySlovakia.sk (lze vložit i odkaz) |
+| **Oblíbené týmy** | výběr a vyhledání oblíbených týmů (i týmů soutěží SZĽH) |
+| **Oznámení** | kdy, o čem a kam posílat oznámení |
+| **Obecné** | intervaly obnovy, počet dní, kurzy (počet sázkovek, The Odds API), TV, adresa API |
 
 ### Mládežnické a nižší soutěže SZĽH (HockeySlovakia.sk)
 
-Soutěže, které Sofascore nemá, například dětské ligy (Liga mladších žiakov 6. ročník / HP6), krajské a regionální soutěže:
+Soutěže, které Sofascore nemá – dětské a mládežnické ligy (např. **Liga mladších žiakov AA**, Liga mladších žiakov
+6. ročník / HP6), krajské a regionální soutěže. Data se čtou z [HockeySlovakia.sk](https://www.hockeyslovakia.sk/sk/stats/tournaments),
+oficiálního webu Slovenského zväzu ľadového hokeja.
 
-1. *Konfigurovat → Soutěže* (nebo přímo při prvním nastavení). Při zvoleném hokeji a Slovensku jsou soutěže SZĽH
-   přímo v seznamu jako **„🏒 SZĽH · …“** – do pole *Hledat* napište např. `6. ročník` nebo `mladší žiaci`.
-   Pod popisem kroku je řádek se stavem načtení (počet soutěží SZĽH nebo chyba).
-2. **Nebo vložte odkaz** na soutěž do pole *Odkaz na soutěž SZĽH* ve stejném kroku, např.
-   `https://www.hockeyslovakia.sk/sk/stats/results/1207/liga-mladsich-ziakov-aa`
-   (stačí stránka soutěže – program a výsledky, tabulka nebo přehled; více odkazů oddělte čárkou).
-   Název soutěže se načte z titulku stránky. Pole je předvyplněné odkazem na **Ligu mladších žiakov AA**
-   a v oblíbených týmech je předvybraný **HKM Zvolen** – stačí potvrdit, případně smazat nebo změnit.
-3. Alternativně *Konfigurovat → Soutěže SZĽH (mládež, nižší ligy)* – samostatné hledání jen v soutěžích SZĽH
-   (do hledání lze vložit i odkaz).
-4. Vyberte soutěže a uložte.
-4. V *Konfigurovat → Oblíbené týmy* pak najdete i týmy těchto soutěží (např. HKM Zvolen) a přidáte je mezi oblíbené.
+**Přidání soutěže** – *Konfigurovat → Soutěže* (nebo přímo při prvním nastavení), jeden ze způsobů:
+
+* **Vložit odkaz** do pole *Odkaz na soutěž SZĽH*, např.
+  `https://www.hockeyslovakia.sk/sk/stats/results/1207/liga-mladsich-ziakov-aa`
+  (jakákoliv stránka soutěže – program a výsledky, tabulka, přehled; více odkazů oddělte čárkou).
+  Název soutěže se načte z titulku stránky. Pole je **předvyplněné odkazem na Ligu mladších žiakov AA**,
+  dokud ji nemáte přidanou – stačí potvrdit, nebo odkaz smazat či přepsat.
+* **Vybrat ze seznamu** – při zvoleném hokeji a Slovensku jsou soutěže SZĽH v seznamu jako **„🏒 SZĽH · …“**;
+  do pole *Hledat* napište např. `mladší žiaci`, `6. ročník` nebo `AA`. Pod popisem kroku je řádek se stavem
+  načtení (`SZĽH (HockeySlovakia.sk): ✅ počet` nebo `❌ chyba`).
+* **Samostatné hledání** – *Konfigurovat → Soutěže SZĽH (mládež, nižší ligy)*.
+
+**Oblíbený tým** – v *Konfigurovat → Oblíbené týmy* jsou i týmy soutěží SZĽH; **HKM Zvolen** je předvybraný.
+
+**Odebrání / změna** – v *Konfigurovat → Soutěže* soutěž odškrtněte, případně vložte jiný odkaz. Změny se projeví
+hned po uložení (integrace se sama znovu načte).
 
 Soutěž se chová jako ostatní: senzor soutěže, tabulka (včetně sloupce **B/Z** – body na zápas), program a výsledky
 v kartě, oblíbený tým má senzory příštího zápasu, posledního výsledku, formy a pozice, kalendář a připomenutí
 před zápasem. HockeySlovakia.sk nemá veřejné API, data se čtou z jejich webových stránek (obnova v běžném intervalu,
-výsledek zápasu se objeví po jeho zapsání svazem). U těchto soutěží nejsou kurzy, streamy ani živé skóre.
+výsledek zápasu se objeví po jeho zapsání svazem). U těchto soutěží nejsou kurzy, streamy, živé skóre ani loga týmů.
+
+Karty pro soutěž SZĽH (stačí název nebo jeho část):
+```yaml
+type: custom:ha-sport-standings-card
+competition: Liga mladších žiakov AA
+---
+type: custom:ha-sport-card
+mode: matches
+competition: mladších žiakov AA
+show_filter: false
+---
+type: custom:ha-sport-team-card
+team: HKM Zvolen
+```
 
 ### Karta na nástěnku (instaluje se zvlášť)
 Integrace a karta jsou dvě samostatné věci – HACS z jednoho repozitáře nainstaluje jen integraci.
@@ -276,7 +318,9 @@ data:
 Data pochází z veřejného JSON API webu [Sofascore](https://www.sofascore.com) (neoficiální, bez API klíče).
 Integrace požadavky omezuje: data ukládá do mezipaměti, kurzy stahuje jednou za 30 minut (oblíbené zápasy)
 až 60 minut (ostatní), tabulky a pavouky jednou za hodinu, sestavy jen 90 minut před zápasem a rychlé obnovování
-zapíná jen během zápasů. Volitelný druhý zdroj kurzů je [The Odds API](https://the-odds-api.com/) (vlastní API klíč). Pokud je API dočasně nedostupné, zkouší se záložní adresy
+zapíná jen během zápasů. Volitelný druhý zdroj kurzů je [The Odds API](https://the-odds-api.com/) (vlastní API klíč).
+Mládežnické a nižší soutěže SZĽH se čtou z webových stránek [HockeySlovakia.sk](https://www.hockeyslovakia.sk)
+(tabulka jednou za hodinu, program a výsledky v běžném intervalu obnovy). Pokud je API dočasně nedostupné, zkouší se záložní adresy
 a zobrazí se poslední známá data. Adresu API lze změnit v nastavení.
 
 Odkazy na streamy vedou na oficiální platformy držitelů vysílacích práv. Kurzy jsou jen informativní.
@@ -290,6 +334,9 @@ Informace o vysílacích právech v sezóně 2025/26–2026/27 (použité pro od
 * Tipos SBL – JOJ Šport, Tipos TV ([7sport.sk](https://7sport.sk/basketbal/sbl-basketbalova-extraliga-muzov/))
 
 ## Řešení potíží
+
+**Nevidím nové volby (soutěže SZĽH, odkaz na soutěž…)** – běží starší verze. Postupujte podle
+[Aktualizace](#aktualizace) (Update information → Redownload → restart HA → Ctrl+F5).
 
 **„Nelze se připojit ke zdroji dat (Sofascore)“** – za dvojtečkou je vypsaná přesná příčina pro každou zkoušenou adresu:
 
