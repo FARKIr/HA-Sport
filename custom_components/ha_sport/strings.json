@@ -10,7 +10,7 @@
           "base_url": "API URL"
         },
         "data_description": {
-          "base_url": "Default https://www.sofascore.com/api/v1 (fallback URLs are tried automatically)."
+          "base_url": "Usually keep the default. Fallback addresses are tried automatically on errors."
         }
       },
       "competitions": {
@@ -148,7 +148,7 @@
         },
         "data_description": {
           "live_scan_interval": "Fast polling starts automatically 20 minutes before tracked matches.",
-          "base_url": "Default https://www.sofascore.com/api/v1 (fallback URLs are tried automatically)."
+          "base_url": "Usually keep the default. Fallback addresses are tried automatically on errors."
         }
       }
     },

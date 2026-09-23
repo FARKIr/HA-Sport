@@ -10,7 +10,7 @@
           "base_url": "Adresa API"
         },
         "data_description": {
-          "base_url": "Výchozí https://www.sofascore.com/api/v1 (při chybě se automaticky zkusí záložní adresy)."
+          "base_url": "Obvykle ponechte výchozí. Při chybě se automaticky zkusí i záložní adresy."
         }
       },
       "competitions": {
@@ -148,7 +148,7 @@
         },
         "data_description": {
           "live_scan_interval": "Rychlé obnovování se zapne automaticky 20 minut před začátkem sledovaných zápasů.",
-          "base_url": "Výchozí https://www.sofascore.com/api/v1 (při chybě se automaticky zkusí záložní adresy)."
+          "base_url": "Obvykle ponechte výchozí. Při chybě se automaticky zkusí i záložní adresy."
         }
       }
     },
