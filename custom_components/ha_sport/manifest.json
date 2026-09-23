@@ -1,13 +1,22 @@
 {
   "domain": "ha_sport",
   "name": "HA Sport CZ/SK",
-  "codeowners": ["@joshuaaaaa"],
+  "codeowners": [
+    "@joshuaaaaa"
+  ],
   "config_flow": true,
-  "dependencies": ["http", "frontend", "websocket_api", "persistent_notification"],
+  "dependencies": [
+    "http",
+    "frontend",
+    "websocket_api",
+    "persistent_notification"
+  ],
   "documentation": "https://github.com/joshuaaaaa/HA-Sport",
   "integration_type": "service",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/joshuaaaaa/HA-Sport/issues",
-  "requirements": [],
-  "version": "1.0.0"
+  "requirements": [
+    "curl_cffi>=0.7.0"
+  ],
+  "version": "1.0.1"
 }

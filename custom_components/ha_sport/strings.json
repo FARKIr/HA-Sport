@@ -64,7 +64,7 @@
       }
     },
     "error": {
-      "cannot_connect": "Cannot connect to the data source (Sofascore). Try another API URL.",
+      "cannot_connect": "Cannot connect to the data source (Sofascore): {error}",
       "no_competitions": "No competitions found.",
       "no_sport": "Select at least one sport.",
       "no_country": "Select at least one country.",
@@ -153,7 +153,7 @@
       }
     },
     "error": {
-      "cannot_connect": "Cannot connect to the data source (Sofascore). Try another API URL.",
+      "cannot_connect": "Cannot connect to the data source (Sofascore): {error}",
       "no_competitions": "No competitions found.",
       "no_sport": "Select at least one sport.",
       "no_country": "Select at least one country.",

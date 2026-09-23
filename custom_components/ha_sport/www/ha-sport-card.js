@@ -8,7 +8,7 @@
  * so it always has the full data (brackets, tables, odds, streams) without
  * bloating entity attributes.
  */
-const CARD_VERSION = "1.0.0";
+const CARD_VERSION = "1.0.1";
 const WS = "ha_sport";
 
 const I18N = {

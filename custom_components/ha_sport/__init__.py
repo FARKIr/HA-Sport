@@ -5,12 +5,13 @@ import logging
 from dataclasses import dataclass
 
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
-from homeassistant.core import HomeAssistant
+from homeassistant.const import EVENT_HOMEASSISTANT_STOP
+from homeassistant.core import Event, HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 import homeassistant.helpers.config_validation as cv
 
-from .api import SofascoreClient
+from .api import SofascoreClient, async_close_shared_session
 from .const import CONF_BASE_URL, DOMAIN, PLATFORMS
 from .coordinator import SportCoordinator
 from .frontend import async_register_frontend
@@ -39,6 +40,11 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     async_register_services(hass)
     async_register_websocket(hass)
     await async_register_frontend(hass)
+
+    async def _close(_event: Event) -> None:
+        await async_close_shared_session()
+
+    hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, _close)
     return True
 
 

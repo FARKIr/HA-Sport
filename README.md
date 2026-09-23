@@ -191,6 +191,19 @@ Informace o vysílacích právech v sezóně 2025/26–2026/27 (použité pro od
 * NBL – ČT sport, TVCOM, TV Chance ([7sport.cz](https://7sport.cz/basketbal/nbl-basketbal/))
 * Tipos SBL – JOJ Šport, Tipos TV ([7sport.sk](https://7sport.sk/basketbal/sbl-basketbalova-extraliga-muzov/))
 
+## Řešení potíží
+
+**„Nelze se připojit ke zdroji dat (Sofascore)“** – za dvojtečkou je vypsaná přesná příčina pro každou zkoušenou adresu:
+
+* `HTTP 403` – Sofascore odmítá klienty, kteří nevypadají jako prohlížeč. Integrace proto používá knihovnu
+  [`curl_cffi`](https://github.com/lexiforest/curl_cffi), která se tváří jako Chrome. Home Assistant ji nainstaluje sám
+  při prvním načtení integrace (po aktualizaci je nutný **restart HA**). Pokud 403 trvá, zkuste v poli *Adresa API*
+  `https://api.sofascore.com/api/v1` nebo `https://api.sofascore.app/api/v1`. Některé VPN nebo IP adresy
+  datacenter bývají blokované úplně.
+* `... knihovna curl_cffi není nainstalovaná` – zkontrolujte log HA (*Nastavení → Systém → Protokoly*), proč se
+  balíček nenainstaloval. Je k dispozici pro x86_64 a ARM64 (Raspberry Pi 4/5 s 64bitovým systémem).
+* `ClientConnectorError` / `Timeout` – HA se nedostane na internet, případně DNS nebo firewall.
+
 ## Vývoj
 
 ```bash

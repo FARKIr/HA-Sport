@@ -64,7 +64,7 @@
       }
     },
     "error": {
-      "cannot_connect": "Nelze se připojit ke zdroji dat (Sofascore). Zkuste jinou adresu API.",
+      "cannot_connect": "Nedá sa pripojiť k zdroju dát (Sofascore): {error}",
       "no_competitions": "Nebyly nalezeny žádné soutěže.",
       "no_sport": "Vyberte aspoň jeden šport.",
       "no_country": "Vyberte aspoň jednu krajinu.",
@@ -153,7 +153,7 @@
       }
     },
     "error": {
-      "cannot_connect": "Nelze se připojit ke zdroji dat (Sofascore). Zkuste jinou adresu API.",
+      "cannot_connect": "Nedá sa pripojiť k zdroju dát (Sofascore): {error}",
       "no_competitions": "Nebyly nalezeny žádné soutěže.",
       "no_sport": "Vyberte aspoň jeden šport.",
       "no_country": "Vyberte aspoň jednu krajinu.",

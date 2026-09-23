@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from urllib.parse import quote
@@ -16,7 +17,7 @@ _LOGGER = logging.getLogger(__name__)
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/128.0 Safari/537.36"
+        "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
     ),
     "Accept": "application/json, text/plain, */*",
     "Accept-Language": "cs-CZ,cs;q=0.9,sk;q=0.8,en;q=0.7",
@@ -24,6 +25,36 @@ HEADERS = {
     "Referer": "https://www.sofascore.com/",
     "Cache-Control": "no-cache",
 }
+# With curl_cffi the User-Agent must match the impersonated browser, so only
+# the non-identifying headers are sent and curl_cffi adds the rest.
+BROWSER_HEADERS = {k: v for k, v in HEADERS.items() if k != "User-Agent"}
+
+try:  # Sofascore rejects clients whose TLS fingerprint is not a real browser
+    from curl_cffi.requests import AsyncSession as CurlSession  # type: ignore[import-not-found]
+except ImportError:  # pragma: no cover - depends on the platform
+    CurlSession = None
+
+IMPERSONATE = "chrome"
+_curl_session: Any = None
+
+
+def _get_curl_session() -> Any:
+    global _curl_session  # noqa: PLW0603 - one shared session for all entries
+    if CurlSession is None:
+        return None
+    if _curl_session is None:
+        _curl_session = CurlSession(impersonate=IMPERSONATE, timeout=20)
+    return _curl_session
+
+
+async def async_close_shared_session() -> None:
+    global _curl_session  # noqa: PLW0603
+    if _curl_session is not None:
+        try:
+            await _curl_session.close()
+        except Exception:  # noqa: BLE001
+            pass
+        _curl_session = None
 
 
 class SportApiError(Exception):
@@ -50,6 +81,18 @@ class SofascoreClient:
         self._cache: dict[str, tuple[float, Any]] = {}
         self.request_count = 0
         self.last_error: str | None = None
+        # transports in order of preference; a failing one is moved to the end
+        self._transports = (["curl", "aiohttp"] if CurlSession is not None else ["aiohttp"])
+
+    async def _fetch(self, url: str, transport: str, json_headers: bool = True) -> tuple[int, bytes, str]:
+        """Return (status, body, content type) using the given transport."""
+        if transport == "curl":
+            resp = await _get_curl_session().get(url, headers=BROWSER_HEADERS if json_headers else None)
+            return resp.status_code, resp.content, resp.headers.get("content-type", "")
+        async with self._session.get(
+            url, headers=HEADERS, timeout=aiohttp.ClientTimeout(total=20)
+        ) as resp:
+            return resp.status, await resp.read(), resp.headers.get("Content-Type", "")
 
     async def get(self, path: str, ttl: float = 0, allow_404: bool = True) -> Any:
         """GET JSON with optional cache TTL (seconds)."""
@@ -58,41 +101,50 @@ class SofascoreClient:
             ts, data = self._cache[path]
             if now - ts < ttl:
                 return data
-        last_exc: Exception | None = None
+        problems: list[str] = []
         async with self._sem:
-            for idx, base in enumerate(list(self._bases)):
-                url = f"{base}{path}"
-                try:
-                    self.request_count += 1
-                    async with self._session.get(
-                        url, headers=HEADERS, timeout=aiohttp.ClientTimeout(total=20)
-                    ) as resp:
-                        if resp.status == 404:
-                            if allow_404:
-                                self._cache[path] = (now, None)
-                                return None
-                            raise SportApiNotFound(path)
-                        if resp.status in (403, 429, 503):
-                            last_exc = SportApiError(f"HTTP {resp.status} for {url}")
-                            continue
-                        resp.raise_for_status()
-                        data = await resp.json(content_type=None)
-                        if idx:
-                            # promote the working base URL
-                            self._bases.insert(0, self._bases.pop(idx))
-                        if ttl:
-                            self._cache[path] = (now, data)
-                        self.last_error = None
-                        return data
-                except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as exc:
-                    last_exc = exc
-                    continue
-        self.last_error = str(last_exc)
+            for transport in list(self._transports):
+                for idx, base in enumerate(list(self._bases)):
+                    url = f"{base}{path}"
+                    host = base.split("/")[2]
+                    try:
+                        self.request_count += 1
+                        status, body, _ = await self._fetch(url, transport)
+                    except Exception as exc:  # noqa: BLE001 - network errors of both libraries
+                        problems.append(f"{host} ({transport}): {type(exc).__name__} {exc}".strip())
+                        continue
+                    if status == 404:
+                        if allow_404:
+                            self._cache[path] = (now, None)
+                            return None
+                        raise SportApiNotFound(path)
+                    if status >= 400:
+                        problems.append(f"{host} ({transport}): HTTP {status}")
+                        continue
+                    try:
+                        data = json.loads(body)
+                    except ValueError:
+                        problems.append(f"{host} ({transport}): neplatná odpověď (není JSON)")
+                        continue
+                    if idx:
+                        # promote the working base URL
+                        self._bases.insert(0, self._bases.pop(idx))
+                    if transport != self._transports[0]:
+                        self._transports.remove(transport)
+                        self._transports.insert(0, transport)
+                    if ttl:
+                        self._cache[path] = (now, data)
+                    self.last_error = None
+                    return data
+        message = "; ".join(problems[:4]) or "neznámá chyba"
+        self.last_error = message
         # serve stale cache if we have it
         if path in self._cache:
-            _LOGGER.debug("Serving stale cache for %s (%s)", path, last_exc)
+            _LOGGER.debug("Serving stale cache for %s (%s)", path, message)
             return self._cache[path][1]
-        raise SportApiError(str(last_exc))
+        if CurlSession is None:
+            message += " – knihovna curl_cffi není nainstalovaná"
+        raise SportApiError(message)
 
     async def safe_get(self, path: str, ttl: float = 0) -> Any:
         try:
@@ -206,14 +258,12 @@ class SofascoreClient:
             "team": f"/team/{obj_id}/image",
             "tournament": f"/unique-tournament/{obj_id}/image",
         }[kind]
-        for base in (IMAGE_BASE_URL, *self._bases):
-            try:
-                async with self._session.get(
-                    f"{base}{path}", headers=HEADERS, timeout=aiohttp.ClientTimeout(total=15)
-                ) as resp:
-                    if resp.status != 200:
-                        continue
-                    return await resp.read(), resp.headers.get("Content-Type", "image/png")
-            except (aiohttp.ClientError, asyncio.TimeoutError):
-                continue
+        for transport in self._transports:
+            for base in (IMAGE_BASE_URL, *self._bases):
+                try:
+                    status, body, ctype = await self._fetch(f"{base}{path}", transport, json_headers=False)
+                except Exception:  # noqa: BLE001
+                    continue
+                if status == 200 and body:
+                    return body, ctype or "image/png"
         return None

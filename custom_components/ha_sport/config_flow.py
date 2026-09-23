@@ -276,6 +276,7 @@ class SportConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
+        placeholders = {"error": ""}
         if user_input is not None:
             self.data.update(user_input)
             if not user_input[CONF_SPORTS]:
@@ -288,6 +289,7 @@ class SportConfigFlow(ConfigFlow, domain=DOMAIN):
                 except SportApiError as exc:
                     _LOGGER.warning("Sofascore nedostupné: %s", exc)
                     errors["base"] = "cannot_connect"
+                    placeholders["error"] = str(exc)
                 else:
                     if not comps:
                         errors["base"] = "no_competitions"
@@ -305,7 +307,9 @@ class SportConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_BASE_URL, default=self.data.get(CONF_BASE_URL, DEFAULT_BASE_URL)): TextSelector(),
             }
         )
-        return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
+        return self.async_show_form(
+            step_id="user", data_schema=schema, errors=errors, description_placeholders=placeholders
+        )
 
     async def async_step_competitions(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
@@ -408,6 +412,7 @@ class SportOptionsFlow(OptionsFlow):
 
     async def async_step_competitions(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
+        placeholders = {"error": ""}
         if user_input is not None and CONF_COMPETITIONS in user_input:
             return self._save({CONF_COMPETITIONS: parse_competitions(user_input[CONF_COMPETITIONS])})
         if user_input is not None or not self._comp_options:
@@ -416,8 +421,9 @@ class SportOptionsFlow(OptionsFlow):
             try:
                 comps = await discover_competitions(self._client(), sports, countries)
                 self._comp_options = competition_options(comps)
-            except SportApiError:
+            except SportApiError as exc:
                 errors["base"] = "cannot_connect"
+                placeholders["error"] = str(exc)
         current = competition_values(self._get(CONF_COMPETITIONS, []))
         # keep currently selected even if discovery failed
         known = {v for v, _ in self._comp_options}
@@ -425,7 +431,9 @@ class SportOptionsFlow(OptionsFlow):
         schema = vol.Schema(
             {vol.Required(CONF_COMPETITIONS, default=current): _sel(options, mode=SelectSelectorMode.DROPDOWN)}
         )
-        return self.async_show_form(step_id="competitions", data_schema=schema, errors=errors)
+        return self.async_show_form(
+            step_id="competitions", data_schema=schema, errors=errors, description_placeholders=placeholders
+        )
 
     async def async_step_favorites(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         current = self._get(CONF_FAVORITE_TEAMS, [])
