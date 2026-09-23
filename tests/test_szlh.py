@@ -88,3 +88,30 @@ def test_matches():
     assert split["start"].startswith("2026-10-12T16:45")
     # ids are stable
     assert parse_matches(RESULTS, comp)[0]["id"] == first["id"]
+
+
+def test_competition_url_and_name():
+    from custom_components.ha_sport.szlh import competition_name, parse_competition_url
+
+    url = "https://www.hockeyslovakia.sk/sk/stats/results/1207/liga-mladsich-ziakov-aa"
+    assert parse_competition_url(url) == (1207, "liga-mladsich-ziakov-aa")
+    assert parse_competition_url("https://www.hockeyslovakia.sk/sk/stats/results-date/1141/liga-mladsich-ziakov-aa?x=1") == (1141, "liga-mladsich-ziakov-aa")
+    assert parse_competition_url("1207") == (1207, "")
+    assert parse_competition_url("https://example.com/foo") is None
+    html = "<html><head><title>Súťaže a štatistiky | Liga mladších žiakov AA | Program a výsledky | HockeySlovakia.sk</title></head></html>"
+    assert competition_name(html) == "Liga mladších žiakov AA"
+    assert competition_name("<html></html>", "liga-mladsich-ziakov-aa") == "Liga mladsich ziakov aa"
+
+
+def test_matches_prefer_team_links():
+    html = """
+    <table>
+     <tr><td>So 27. 9. 2026</td></tr>
+     <tr><td>09:00</td><td>Zimný štadión Zvolen</td>
+         <td><a href="/sk/stats/teams/1207/liga-mladsich-ziakov-aa/team/667196/mhk-ruzomberok">MHK Ružomberok</a></td>
+         <td>3:4</td>
+         <td><a href="/sk/stats/teams/1207/liga-mladsich-ziakov-aa/team/667179/slovan">SLOVAN Bratislava - mládež</a></td></tr>
+    </table>"""
+    ev = parse_matches(html, {"id": "szlh-1207", "name": "Liga mladších žiakov AA"})[0]
+    assert ev["home"]["name"] == "MHK Ružomberok" and ev["away"]["name"] == "SLOVAN Bratislava - mládež"
+    assert (ev["home"]["score"], ev["away"]["score"]) == (3, 4)

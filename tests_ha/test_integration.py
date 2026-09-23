@@ -334,3 +334,35 @@ async def test_szlh_in_competitions_list(hass: HomeAssistant, fake_api) -> None:
         assert result["step_id"] == "favorites"
         fav_labels = [o["label"] for o in result["data_schema"].schema["favorite_teams"].config["options"]]
         assert any("HKM Zvolen" in label for label in fav_labels)
+
+
+async def test_szlh_competition_by_link(hass: HomeAssistant, fake_api) -> None:
+    pages = {
+        "/sk/stats/results/1207/liga-mladsich-ziakov-aa":
+            "<title>Súťaže a štatistiky | Liga mladších žiakov AA | Program a výsledky | HockeySlovakia.sk</title>",
+    }
+
+    async def fake_get(self, path):
+        return pages.get(path)
+
+    with patch("custom_components.ha_sport.szlh.SzlhClient._get", new=fake_get):
+        entry = await _setup(hass)
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+        result = await hass.config_entries.options.async_configure(result["flow_id"], {"next_step_id": "competitions"})
+        assert result["step_id"] == "competitions"
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"], {"szlh_link": "nesmysl"}
+        )
+        assert result["errors"] == {"szlh_link": "szlh_bad_link"}
+        current = [c for c in entry.options.get("competitions", entry.data["competitions"])]
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {"competitions": [f"football|CZ|{UT}|Chance Liga"],
+             "szlh_link": "https://www.hockeyslovakia.sk/sk/stats/results/1207/liga-mladsich-ziakov-aa"},
+        )
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+        comps = entry.options["competitions"]
+        szlh = next(c for c in comps if c.get("source") == "szlh")
+        assert szlh["id"] == "szlh-1207" and szlh["name"] == "Liga mladších žiakov AA"
+        assert szlh["slug"] == "liga-mladsich-ziakov-aa"
+        assert any(c["id"] == UT for c in comps) and current

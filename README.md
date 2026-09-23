@@ -54,8 +54,13 @@ Soutěže, které Sofascore nemá, například dětské ligy (Liga mladších ž
 1. *Konfigurovat → Soutěže* (nebo přímo při prvním nastavení). Při zvoleném hokeji a Slovensku jsou soutěže SZĽH
    přímo v seznamu jako **„🏒 SZĽH · …“** – do pole *Hledat* napište např. `6. ročník` nebo `mladší žiaci`.
    Pod popisem kroku je řádek se stavem načtení (počet soutěží SZĽH nebo chyba).
-2. Alternativně *Konfigurovat → Soutěže SZĽH (mládež, nižší ligy)* – samostatné hledání jen v soutěžích SZĽH.
-3. Vyberte soutěže a uložte.
+2. **Nebo vložte odkaz** na soutěž do pole *Odkaz na soutěž SZĽH* ve stejném kroku, např.
+   `https://www.hockeyslovakia.sk/sk/stats/results/1207/liga-mladsich-ziakov-aa`
+   (stačí stránka soutěže – program a výsledky, tabulka nebo přehled; více odkazů oddělte čárkou).
+   Název soutěže se načte z titulku stránky.
+3. Alternativně *Konfigurovat → Soutěže SZĽH (mládež, nižší ligy)* – samostatné hledání jen v soutěžích SZĽH
+   (do hledání lze vložit i odkaz).
+4. Vyberte soutěže a uložte.
 4. V *Konfigurovat → Oblíbené týmy* pak najdete i týmy těchto soutěží (např. HKM Zvolen) a přidáte je mezi oblíbené.
 
 Soutěž se chová jako ostatní: senzor soutěže, tabulka (včetně sloupce **B/Z** – body na zápas), program a výsledky
@@ -299,7 +304,7 @@ Informace o vysílacích právech v sezóně 2025/26–2026/27 (použité pro od
 **Soutěž SZĽH nemá tabulku nebo zápasy** – parser hledá na stránkách HockeySlovakia.sk tabulky podle názvů sloupců.
 Pokud svaz změní vzhled stránek, otevřete stránku tabulky nebo výsledků soutěže v prohlížeči, uložte ji
 (Ctrl+S, „jen HTML“) a pošlete ji – parser se podle ní upraví. Chyba stahování je v logu HA
-(`HockeySlovakia.sk: …`).
+(`HockeySlovakia.sk: …`) a v atributu `szlh_error` senzoru **Poslední aktualizace**.
 
 **Chybí kurzy** – podívejte se na atribut `odds` senzoru **Poslední aktualizace**:
 

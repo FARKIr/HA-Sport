@@ -78,7 +78,7 @@ from .const import (
 )
 from .models import normalize_team
 from .streams import normalize
-from .szlh import BASE as SZLH_BASE, SOURCE as SZLH, SzlhClient
+from .szlh import BASE as SZLH_BASE, SOURCE as SZLH, SzlhClient, parse_competition_url
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -191,6 +191,23 @@ async def szlh_options(hass: HomeAssistant) -> tuple[list[tuple[str, str]], str]
          f"🏒 SZĽH · {t['name']}" + (f" ({t['group']})" if t.get("group") else ""))
         for t in items
     ], f"SZĽH (HockeySlovakia.sk): ✅ {len(items)} – 🏒 SZĽH · …"
+
+
+async def add_szlh_links(hass: HomeAssistant, comps: list[dict[str, Any]], links: str | None) -> tuple[list[dict[str, Any]], str | None]:
+    """Append SZĽH competitions from pasted HockeySlovakia.sk links (comma/space/newline separated)."""
+    if not links or not links.strip():
+        return comps, None
+    client = SzlhClient(async_get_clientsession(hass))
+    out = list(comps)
+    for link in re.split(r"[\s,;]+", links.strip()):
+        if not link:
+            continue
+        info = await client.competition_from_url(link)
+        if info is None:
+            return comps, "szlh_bad_link"
+        if not any(c.get("szlh_id") == info["id"] for c in out):
+            out.append(szlh_competition(info["id"], info["slug"], info["name"]))
+    return out, None
 
 
 def parse_competitions(values: list[str]) -> list[dict[str, Any]]:
@@ -391,19 +408,25 @@ class SportConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_competitions(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            if not user_input.get(CONF_COMPETITIONS):
+            comps, err = await add_szlh_links(
+                self.hass, parse_competitions(user_input.get(CONF_COMPETITIONS, [])), user_input.get("szlh_link")
+            )
+            if err:
+                errors["szlh_link"] = err
+            elif not comps:
                 errors[CONF_COMPETITIONS] = "no_competition"
             else:
-                self.data[CONF_COMPETITIONS] = parse_competitions(user_input[CONF_COMPETITIONS])
+                self.data[CONF_COMPETITIONS] = comps
                 self._teams = await teams_of_competitions(
                     self._client(), self.data[CONF_COMPETITIONS], SzlhClient(async_get_clientsession(self.hass))
                 )
                 return await self.async_step_favorites()
         schema = vol.Schema(
             {
-                vol.Required(CONF_COMPETITIONS, default=recommended_values(self._comp_options)): _sel(
+                vol.Optional(CONF_COMPETITIONS, default=recommended_values(self._comp_options)): _sel(
                     self._comp_options, mode=SelectSelectorMode.DROPDOWN
-                )
+                ),
+                vol.Optional("szlh_link"): TextSelector(),
             }
         )
         return self.async_show_form(
@@ -495,9 +518,14 @@ class SportOptionsFlow(OptionsFlow):
     async def async_step_competitions(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         placeholders = {"error": ""}
-        if user_input is not None and CONF_COMPETITIONS in user_input:
-            return self._save({CONF_COMPETITIONS: parse_competitions(user_input[CONF_COMPETITIONS])})
-        if user_input is not None or not self._comp_options:
+        if user_input is not None and (CONF_COMPETITIONS in user_input or user_input.get("szlh_link")):
+            comps, err = await add_szlh_links(
+                self.hass, parse_competitions(user_input.get(CONF_COMPETITIONS, [])), user_input.get("szlh_link")
+            )
+            if not err:
+                return self._save({CONF_COMPETITIONS: comps})
+            errors["szlh_link"] = err
+        if not self._comp_options:
             sports = (user_input or {}).get(CONF_SPORTS) or self._get(CONF_SPORTS, list(SPORTS))
             countries = (user_input or {}).get(CONF_COUNTRIES) or self._get(CONF_COUNTRIES, ["CZ", "SK"])
             try:
@@ -514,7 +542,10 @@ class SportOptionsFlow(OptionsFlow):
         known = {v for v, _ in self._comp_options}
         options = self._comp_options + [(v, v.split("|", 3)[3]) for v in current if v not in known]
         schema = vol.Schema(
-            {vol.Required(CONF_COMPETITIONS, default=current): _sel(options, mode=SelectSelectorMode.DROPDOWN)}
+            {
+                vol.Optional(CONF_COMPETITIONS, default=current): _sel(options, mode=SelectSelectorMode.DROPDOWN),
+                vol.Optional("szlh_link"): TextSelector(),
+            }
         )
         return self.async_show_form(
             step_id="competitions", data_schema=schema, errors=errors,
@@ -574,7 +605,12 @@ class SportOptionsFlow(OptionsFlow):
             if not self._szlh_all:
                 errors["base"] = "cannot_connect_szlh"
                 placeholders["error"] = client.last_error or ""
-        if user_input is not None and not errors:
+        if user_input is not None and parse_competition_url(user_input.get("search") or "") and "/" in (user_input.get("search") or ""):
+            comps, err = await add_szlh_links(self.hass, self._get(CONF_COMPETITIONS, []), user_input["search"])
+            if not err:
+                return self._save({CONF_COMPETITIONS: comps})
+            errors["search"] = err
+        elif user_input is not None and not errors:
             self._szlh_query = normalize(user_input.get("search") or "")
             return await self.async_step_szlh_select()
         return self.async_show_form(

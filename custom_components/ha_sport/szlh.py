@@ -33,6 +33,8 @@ HEADERS = {
     ),
 }
 
+TEAM_LINK_RE = re.compile(r"/team/(\d+)")
+URL_RE = re.compile(r"/stats/[\w-]+/(\d+)(?:/([\w\-.%]+))?")
 LINK_RE = re.compile(r"/(?:sk|en)/stats/[\w-]+/(\d+)(?:/([\w\-.%]+))?")
 DATE_RE = re.compile(r"(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})")
 TIME_RE = re.compile(r"^(\d{1,2})[:.](\d{2})$")
@@ -76,6 +78,8 @@ class PageParser(HTMLParser):
         self._heading_buf: str | None = None
         self._link: list[Any] | None = None
         self._skip = 0
+        self.title = ""
+        self._in_title = False
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         a = dict(attrs)
@@ -93,10 +97,14 @@ class PageParser(HTMLParser):
                 self._cell.links.append(a["href"])
         elif tag in self.HEADINGS:
             self._heading_buf = ""
+        elif tag == "title":
+            self._in_title = True
         elif tag == "br" and self._cell is not None:
             self._cell.text += " "
 
     def handle_endtag(self, tag: str) -> None:
+        if tag == "title":
+            self._in_title = False
         if tag in ("script", "style"):
             self._skip = max(0, self._skip - 1)
         elif tag in ("td", "th") and self._cell is not None and self._row is not None:
@@ -122,6 +130,8 @@ class PageParser(HTMLParser):
             self._heading_buf = None
 
     def handle_data(self, data: str) -> None:
+        if self._in_title:
+            self.title += data
         if self._skip:
             return
         if self._cell is not None:
@@ -137,6 +147,27 @@ def parse_page(html: str) -> PageParser:
     parser.feed(html)
     parser.close()
     return parser
+
+
+def parse_competition_url(value: str) -> tuple[int, str] | None:
+    """'https://www.hockeyslovakia.sk/sk/stats/results/1207/liga-mladsich-ziakov-aa' -> (1207, slug)."""
+    value = (value or "").strip()
+    if value.isdigit():
+        return int(value), ""
+    m = URL_RE.search(value)
+    if not m:
+        return None
+    return int(m.group(1)), m.group(2) or ""
+
+
+def competition_name(html: str, slug: str = "") -> str | None:
+    """Name from '<title>Súťaže a štatistiky | Liga mladších žiakov AA | Program a výsledky | …'."""
+    parts = [p.strip() for p in parse_page(html).title.split("|") if p.strip()]
+    if len(parts) >= 2 and "tatistiky" in parts[0]:
+        return parts[1]
+    if slug:
+        return slug.replace("-", " ").capitalize()
+    return parts[0] if parts else None
 
 
 # --- tournaments -------------------------------------------------------------------
@@ -274,7 +305,8 @@ def parse_matches(html: str, comp: dict[str, Any]) -> list[dict[str, Any]]:
             dm = DATE_RE.search(joined)
             if dm:
                 current_date = (int(dm.group(3)), int(dm.group(2)), int(dm.group(1)))
-            team_cells = [t for t in texts if _is_team_text(t)]
+            linked = [c.text for c in row if any(TEAM_LINK_RE.search(h) for h in c.links) and _is_team_text(c.text)]
+            team_cells = linked if len(linked) >= 2 else [t for t in texts if _is_team_text(t)]
             home = away = None
             if len(team_cells) >= 2:
                 home, away = team_cells[0], team_cells[1]
@@ -386,6 +418,18 @@ class SzlhClient:
         self.last_error = f"{url}: " + "; ".join(errors)
         _LOGGER.warning("HockeySlovakia.sk: %s", self.last_error)
         return None
+
+    async def competition_from_url(self, value: str) -> dict[str, Any] | None:
+        """Competition entry from a pasted HockeySlovakia.sk link (or numeric id)."""
+        parsed = parse_competition_url(value)
+        if not parsed:
+            return None
+        tid, slug = parsed
+        html = await self._get(f"/sk/stats/results/{tid}/{slug}".rstrip("/"))
+        name = competition_name(html, slug) if html else None
+        if not name:
+            name = slug.replace("-", " ").capitalize() if slug else f"SZĽH {tid}"
+        return {"id": tid, "slug": slug, "name": name}
 
     async def tournaments(self) -> list[dict[str, Any]]:
         html = await self._get("/sk/stats/tournaments")

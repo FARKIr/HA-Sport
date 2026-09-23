@@ -17,7 +17,11 @@
         "title": "Súťaže",
         "description": "Vyberte súťaže (ligy, poháre, play-off). Vybrané súťaže sa v rozbaľovacom zozname skryjú. Mládežnícke a nižšie súťaže SZĽH nájdete v zozname ako „🏒 SZĽH · …“ – do hľadania napíšte napr. „6. ročník“.\n\n{szlh}",
         "data": {
-          "competitions": "Súťaže"
+          "competitions": "Súťaže",
+          "szlh_link": "Odkaz na súťaž SZĽH (voliteľné)"
+        },
+        "data_description": {
+          "szlh_link": "Vložte odkaz z HockeySlovakia.sk, napr. stránku „Program a výsledky“ súťaže. Viac odkazov oddeľte čiarkou."
         }
       },
       "favorites": {
@@ -74,7 +78,8 @@
       "no_sport": "Vyberte aspoň jeden šport.",
       "no_country": "Vyberte aspoň jednu krajinu.",
       "no_competition": "Vyberte aspoň jednu súťaž.",
-      "no_results": "Nič sa nenašlo."
+      "no_results": "Nič sa nenašlo.",
+      "szlh_bad_link": "Odkaz nevyzerá ako súťaž na HockeySlovakia.sk (…/sk/stats/results/1207/…)."
     },
     "abort": {
       "already_configured": "Již nastaveno."
@@ -96,7 +101,11 @@
         "title": "Súťaže",
         "description": "Vyberte súťaže (ligy, poháre, play-off). Vybrané súťaže sa v rozbaľovacom zozname skryjú. Mládežnícke a nižšie súťaže SZĽH nájdete v zozname ako „🏒 SZĽH · …“ – do hľadania napíšte napr. „6. ročník“.\n\n{szlh}",
         "data": {
-          "competitions": "Súťaže"
+          "competitions": "Súťaže",
+          "szlh_link": "Odkaz na súťaž SZĽH (voliteľné)"
+        },
+        "data_description": {
+          "szlh_link": "Vložte odkaz z HockeySlovakia.sk, napr. stránku „Program a výsledky“ súťaže. Viac odkazov oddeľte čiarkou."
         }
       },
       "favorites": {
@@ -188,7 +197,8 @@
       "no_country": "Vyberte aspoň jednu krajinu.",
       "no_competition": "Vyberte aspoň jednu súťaž.",
       "no_results": "Nič sa nenašlo.",
-      "cannot_connect_szlh": "Nedá sa načítať zoznam súťaží z HockeySlovakia.sk: {error}"
+      "cannot_connect_szlh": "Nedá sa načítať zoznam súťaží z HockeySlovakia.sk: {error}",
+      "szlh_bad_link": "Odkaz nevyzerá ako súťaž na HockeySlovakia.sk (…/sk/stats/results/1207/…)."
     }
   },
   "entity": {

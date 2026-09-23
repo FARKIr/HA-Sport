@@ -345,6 +345,7 @@ class StatusSensor(SportEntity, SensorEntity):
             "competition_ids": {c.get("name"): c.get("id") for c in data.get("competitions", {}).values()},
             "team_ids": {t.get("name"): t.get("id") for t in data.get("favorites", [])},
             "odds": data.get("odds_stats"),
+            "szlh_error": data.get("szlh_error"),
             "update_interval_s": self.coordinator.update_interval.total_seconds()
             if self.coordinator.update_interval
             else None,

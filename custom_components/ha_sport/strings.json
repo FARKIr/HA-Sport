@@ -17,7 +17,11 @@
         "title": "Competitions",
         "description": "Select competitions (leagues, cups, play-offs). Already selected ones are hidden in the dropdown. Slovak federation (SZĽH) youth and lower leagues are listed as \"🏒 SZĽH · …\" – search e.g. \"6. ročník\".\n\n{szlh}",
         "data": {
-          "competitions": "Competitions"
+          "competitions": "Competitions",
+          "szlh_link": "SZĽH competition link (optional)"
+        },
+        "data_description": {
+          "szlh_link": "Paste a HockeySlovakia.sk link, e.g. the competition's results page. Separate several links with commas."
         }
       },
       "favorites": {
@@ -74,7 +78,8 @@
       "no_sport": "Select at least one sport.",
       "no_country": "Select at least one country.",
       "no_competition": "Select at least one competition.",
-      "no_results": "Nothing found. Submit to continue."
+      "no_results": "Nothing found. Submit to continue.",
+      "szlh_bad_link": "The link does not look like a HockeySlovakia.sk competition (…/sk/stats/results/1207/…)."
     },
     "abort": {
       "already_configured": "Already configured."
@@ -96,7 +101,11 @@
         "title": "Competitions",
         "description": "Select competitions (leagues, cups, play-offs). Already selected ones are hidden in the dropdown. Slovak federation (SZĽH) youth and lower leagues are listed as \"🏒 SZĽH · …\" – search e.g. \"6. ročník\".\n\n{szlh}",
         "data": {
-          "competitions": "Competitions"
+          "competitions": "Competitions",
+          "szlh_link": "SZĽH competition link (optional)"
+        },
+        "data_description": {
+          "szlh_link": "Paste a HockeySlovakia.sk link, e.g. the competition's results page. Separate several links with commas."
         }
       },
       "favorites": {
@@ -188,7 +197,8 @@
       "no_country": "Select at least one country.",
       "no_competition": "Select at least one competition.",
       "no_results": "Nothing found. Submit to continue.",
-      "cannot_connect_szlh": "Cannot load competitions from HockeySlovakia.sk: {error}"
+      "cannot_connect_szlh": "Cannot load competitions from HockeySlovakia.sk: {error}",
+      "szlh_bad_link": "The link does not look like a HockeySlovakia.sk competition (…/sk/stats/results/1207/…)."
     }
   },
   "entity": {

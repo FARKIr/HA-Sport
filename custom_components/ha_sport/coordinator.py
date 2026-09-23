@@ -743,6 +743,7 @@ class SportCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "favorites": list(self.favorites.values()),
             "updated": datetime.now(timezone.utc).isoformat(),
             "requests": self.client.request_count,
+            "szlh_error": self.szlh.last_error,
             "odds_stats": {
                 "upcoming": sum(1 for e in events if e["status"] == STATUS_NOT_STARTED),
                 "with_odds": sum(1 for e in events if e["status"] == STATUS_NOT_STARTED and e.get("odds")),
