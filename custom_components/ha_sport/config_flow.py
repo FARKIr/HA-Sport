@@ -91,6 +91,29 @@ RECOMMENDED = (
 DEPRIORITIZED = ("u19", "u21", "u20", "u17", "u18", "women", "zeny", "dorost", "junior", "youth")
 
 
+# Pre-filled (editable) defaults: youth league of HKM Zvolen and the club itself
+PRESET_SZLH_LINKS = ("https://www.hockeyslovakia.sk/sk/stats/results/1207/liga-mladsich-ziakov-aa",)
+PRESET_TEAMS = ("hkm zvolen",)
+
+
+def preset_links(comps: list[dict[str, Any]]) -> str:
+    """Preset SZĽH links that are not configured yet (comma separated)."""
+    have = {c.get("szlh_id") for c in comps}
+    return ", ".join(
+        link for link in PRESET_SZLH_LINKS
+        if (parsed := parse_competition_url(link)) and parsed[0] not in have
+    )
+
+
+def preset_team_values(teams: list[dict[str, Any]], selected: list[str]) -> list[str]:
+    """Add preset favorite teams (if present in the list) to the selection."""
+    out = list(selected)
+    for t in teams:
+        if normalize(t.get("name") or "") in PRESET_TEAMS and team_value(t) not in out:
+            out.append(team_value(t))
+    return out
+
+
 def _sel(options: list[tuple[str, str]], multiple: bool = True, mode=SelectSelectorMode.LIST, custom=False) -> SelectSelector:
     return SelectSelector(
         SelectSelectorConfig(
@@ -426,7 +449,9 @@ class SportConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_COMPETITIONS, default=recommended_values(self._comp_options)): _sel(
                     self._comp_options, mode=SelectSelectorMode.DROPDOWN
                 ),
-                vol.Optional("szlh_link"): TextSelector(),
+                vol.Optional(
+                    "szlh_link", description={"suggested_value": preset_links([])}
+                ): TextSelector(),
             }
         )
         return self.async_show_form(
@@ -448,7 +473,9 @@ class SportConfigFlow(ConfigFlow, domain=DOMAIN):
         options = [(team_value(t), team_label(t)) for t in self._teams]
         schema = vol.Schema(
             {
-                vol.Optional(CONF_FAVORITE_TEAMS, default=self._selected_teams): _sel(options, mode=SelectSelectorMode.DROPDOWN),
+                vol.Optional(
+                    CONF_FAVORITE_TEAMS, default=preset_team_values(self._teams, self._selected_teams)
+                ): _sel(options, mode=SelectSelectorMode.DROPDOWN),
                 vol.Optional("search"): TextSelector(),
             }
         )
@@ -544,7 +571,9 @@ class SportOptionsFlow(OptionsFlow):
         schema = vol.Schema(
             {
                 vol.Optional(CONF_COMPETITIONS, default=current): _sel(options, mode=SelectSelectorMode.DROPDOWN),
-                vol.Optional("szlh_link"): TextSelector(),
+                vol.Optional(
+                    "szlh_link", description={"suggested_value": preset_links(self._get(CONF_COMPETITIONS, []))}
+                ): TextSelector(),
             }
         )
         return self.async_show_form(
@@ -560,7 +589,7 @@ class SportOptionsFlow(OptionsFlow):
             )
             known = {t["id"] for t in self._teams}
             self._teams.extend(t for t in current if t["id"] not in known)
-            self._selected = [team_value(t) for t in current]
+            self._selected = preset_team_values(self._teams, [team_value(t) for t in current])
         if user_input is not None:
             self._selected = list(user_input.get(CONF_FAVORITE_TEAMS, []))
             query = (user_input.get("search") or "").strip()

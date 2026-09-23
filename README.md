@@ -57,7 +57,8 @@ Soutěže, které Sofascore nemá, například dětské ligy (Liga mladších ž
 2. **Nebo vložte odkaz** na soutěž do pole *Odkaz na soutěž SZĽH* ve stejném kroku, např.
    `https://www.hockeyslovakia.sk/sk/stats/results/1207/liga-mladsich-ziakov-aa`
    (stačí stránka soutěže – program a výsledky, tabulka nebo přehled; více odkazů oddělte čárkou).
-   Název soutěže se načte z titulku stránky.
+   Název soutěže se načte z titulku stránky. Pole je předvyplněné odkazem na **Ligu mladších žiakov AA**
+   a v oblíbených týmech je předvybraný **HKM Zvolen** – stačí potvrdit, případně smazat nebo změnit.
 3. Alternativně *Konfigurovat → Soutěže SZĽH (mládež, nižší ligy)* – samostatné hledání jen v soutěžích SZĽH
    (do hledání lze vložit i odkaz).
 4. Vyberte soutěže a uložte.

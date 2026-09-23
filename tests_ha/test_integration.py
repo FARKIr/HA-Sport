@@ -366,3 +366,26 @@ async def test_szlh_competition_by_link(hass: HomeAssistant, fake_api) -> None:
         assert szlh["id"] == "szlh-1207" and szlh["name"] == "Liga mladších žiakov AA"
         assert szlh["slug"] == "liga-mladsich-ziakov-aa"
         assert any(c["id"] == UT for c in comps) and current
+
+
+async def test_szlh_preset_link_prefilled(hass: HomeAssistant, fake_api) -> None:
+    async def fake_get(self, path):
+        return None
+
+    with patch("custom_components.ha_sport.szlh.SzlhClient._get", new=fake_get):
+        entry = await _setup(hass)
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+        result = await hass.config_entries.options.async_configure(result["flow_id"], {"next_step_id": "competitions"})
+        marker = next(k for k in result["data_schema"].schema if k == "szlh_link")
+        assert "1207/liga-mladsich-ziakov-aa" in marker.description["suggested_value"]
+
+        # once configured, the field is empty (can be edited/removed in the competitions list)
+        hass.config_entries.async_update_entry(entry, options={**entry.options, "competitions": [
+            *entry.data["competitions"],
+            {"id": "szlh-1207", "szlh_id": 1207, "slug": "liga-mladsich-ziakov-aa", "name": "Liga mladších žiakov AA",
+             "sport": "ice-hockey", "country": "SK", "source": "szlh"}]})
+        await hass.async_block_till_done()
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+        result = await hass.config_entries.options.async_configure(result["flow_id"], {"next_step_id": "competitions"})
+        marker = next(k for k in result["data_schema"].schema if k == "szlh_link")
+        assert marker.description["suggested_value"] == ""
