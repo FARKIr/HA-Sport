@@ -4,11 +4,15 @@
  *   type: custom:ha-sport-card
  *   mode: matches | team | bracket | standings | smart | live
  *
+ * Install: copy this file to /config/www/ha-sport-card.js and add the dashboard
+ * resource /local/ha-sport-card.js (type: JavaScript module).
+ * Requires the HA Sport CZ/SK integration (custom_components/ha_sport).
+ *
  * The card talks to the integration through the WebSocket API (ha_sport/*),
  * so it always has the full data (brackets, tables, odds, streams) without
  * bloating entity attributes.
  */
-const CARD_VERSION = "1.0.1";
+const CARD_VERSION = "1.1.0";
 const WS = "ha_sport";
 
 const I18N = {

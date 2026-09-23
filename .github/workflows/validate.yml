@@ -33,4 +33,4 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-      - run: node --check custom_components/ha_sport/www/ha-sport-card.js
+      - run: node --check card/ha-sport-card.js

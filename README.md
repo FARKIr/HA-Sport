@@ -21,7 +21,7 @@ před začátkem, góly, průběžné stavy a konečný výsledek.
 | **Filtr** | Hledání podle názvu týmu, soutěže, **města** nebo stadionu (bez ohledu na diakritiku), podle sportu, jen oblíbené |
 | **Oznámení** | X minut před začátkem (víc časů najednou, i vlastní), začátek zápasu, góly, konec poločasu/třetiny, průběžný stav každých N minut, konečný výsledek, tichý režim, push na mobil s tlačítkem **📺 Sledovat** |
 | **Kalendáře** | `calendar.*_zapasy` a `calendar.*_zapasy_oblibenych` – fungují v kalendáři HA i v automatizacích |
-| **Karty** | Zápasy s filtrem, můj tým, chytrá karta, pavouk, tabulka – s vizuálním editorem, načítají se automaticky |
+| **Karty** | Zápasy s filtrem, můj tým, chytrá karta, pavouk, tabulka – s vizuálním editorem (samostatný soubor `card/ha-sport-card.js`, instaluje se zvlášť) |
 | **Automatizace** | Události `ha_sport_notification` a `ha_sport_match_update`, služby vracející data (`get_matches`, `get_team`, `search_team`) |
 
 ## Instalace
@@ -42,11 +42,24 @@ Zkopírujte složku `custom_components/ha_sport` do `config/custom_components/` 
 4. **Oznámení**: kdy a kam je posílat.
 
 Všechno jde později změnit přes **Konfigurovat** (soutěže, oblíbené týmy, oznámení, obecné).
-Karty se zaregistrují samy, žádný zdroj (resource) do Lovelace přidávat nemusíte.
+
+### Karta na nástěnku (instaluje se zvlášť)
+Integrace a karta jsou dvě samostatné věci – HACS z jednoho repozitáře nainstaluje jen integraci.
+Kartu přidáte ručně:
+
+1. Stáhněte [`card/ha-sport-card.js`](card/ha-sport-card.js) a uložte ho do `/config/www/ha-sport-card.js`
+   (složku `www` případně vytvořte; po jejím prvním vytvoření restartujte HA).
+2. *Nastavení → Nástěnky → ⋮ → Zdroje → Přidat zdroj*
+   * URL: `/local/ha-sport-card.js?v=1.1.0`
+   * Typ: **JavaScript modul**
+3. Obnovte prohlížeč (Ctrl+F5, v mobilní aplikaci *Nastavení → Aplikace → Obnovit frontend*).
+
+Při aktualizaci karty soubor přepište a zvyšte číslo ve `?v=`, aby prohlížeč nepoužil starou verzi z mezipaměti.
+Karta potřebuje nainstalovanou a nastavenou integraci (bere z ní data).
 
 ## Karty na nástěnku
 
-Všechny karty najdete v nabídce „Přidat kartu“ (hledejte „HA Sport“) a mají vizuální editor.
+Po přidání zdroje najdete karty v nabídce „Přidat kartu“ (hledejte „HA Sport“), všechny mají vizuální editor.
 
 ### Zápasy s filtrem
 ```yaml

@@ -5,7 +5,7 @@ from typing import Final
 
 DOMAIN: Final = "ha_sport"
 NAME: Final = "HA Sport CZ/SK"
-VERSION: Final = "1.0.1"
+VERSION: Final = "1.1.0"
 
 PLATFORMS: Final = ["sensor", "binary_sensor", "calendar", "switch", "button"]
 
@@ -105,8 +105,6 @@ SIGNAL_UPDATE: Final = f"{DOMAIN}_update"
 STORAGE_KEY: Final = f"{DOMAIN}.state"
 STORAGE_VERSION: Final = 1
 
-FRONTEND_URL_BASE: Final = f"/{DOMAIN}_static"
-CARD_FILENAME: Final = "ha-sport-card.js"
 LOGO_URL: Final = f"/api/{DOMAIN}/logo"
 
 ATTR_EVENT_ID: Final = "event_id"

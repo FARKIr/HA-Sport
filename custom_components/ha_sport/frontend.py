@@ -1,4 +1,7 @@
-"""Serve the Lovelace card and a caching proxy for team / competition logos."""
+"""Caching proxy for team / competition logos used by the Lovelace card.
+
+The card itself is a separate resource (see card/ha-sport-card.js in the repository).
+"""
 from __future__ import annotations
 
 import logging
@@ -7,26 +10,19 @@ from pathlib import Path
 
 from aiohttp import web
 
-from homeassistant.components.frontend import add_extra_js_url
-from homeassistant.components.http import HomeAssistantView, StaticPathConfig
+from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
 
-from .const import CARD_FILENAME, DOMAIN, FRONTEND_URL_BASE, LOGO_URL, VERSION
+from .const import DOMAIN, LOGO_URL
 
 _LOGGER = logging.getLogger(__name__)
 
-WWW_DIR = Path(__file__).parent / "www"
 LOGO_TTL = 7 * 86400
 
 
 async def async_register_frontend(hass: HomeAssistant) -> None:
     if hass.data[DOMAIN].get("frontend_registered"):
         return
-    await hass.http.async_register_static_paths(
-        [StaticPathConfig(FRONTEND_URL_BASE, str(WWW_DIR), cache_headers=False)]
-    )
-    # the card is loaded automatically – no manual resource needed
-    add_extra_js_url(hass, f"{FRONTEND_URL_BASE}/{CARD_FILENAME}?v={VERSION}")
     hass.http.register_view(LogoView(hass))
     hass.data[DOMAIN]["frontend_registered"] = True
 

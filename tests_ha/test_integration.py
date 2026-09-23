@@ -156,10 +156,10 @@ async def test_reminder_catch_up_and_unload(hass: HomeAssistant, fake_api) -> No
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_frontend_served(hass: HomeAssistant, hass_client, fake_api) -> None:
+async def test_logo_proxy_registered(hass: HomeAssistant, hass_client, fake_api) -> None:
     await async_setup_component(hass, "http", {})
     await _setup(hass)
     client = await hass_client()
-    resp = await client.get("/ha_sport_static/ha-sport-card.js")
-    assert resp.status == 200
-    assert "ha-sport-card" in await resp.text()
+    # invalid kind -> 404 from our view (proves the route exists), card is no longer served
+    assert (await client.get("/api/ha_sport/logo/foo/1")).status == 404
+    assert (await client.get("/ha_sport_static/ha-sport-card.js")).status == 404
